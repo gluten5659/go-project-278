@@ -1,0 +1,53 @@
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  default: all
+  disable:
+    - depguard
+    - exhaustruct
+    - wsl
+    - gomodguard
+  settings:
+    ireturn:
+      allow:
+        - anon
+        - error
+        - empty
+        - stdlib
+        - Formatter
+    revive:
+      rules:
+        - name: package-comments
+          disabled: true
+        - name: exported
+          disabled: true
+  exclusions:
+    paths:
+      - bin
+    rules:
+      - linters:
+          - gosec
+        text: G304
+      - linters:
+          - gosec
+        text: G204
+        path: _test\.go
+      - path: _test\.go
+        linters:
+          - funlen
+
+formatters:
+  enable:
+    - gofumpt
+    - goimports
+    - golines
+  settings:
+    golines:
+      max-len: 100
+      tab-len: 2
+      shorten-comments: true
+      reformat-tags: true
+      chain-split-dots: true
