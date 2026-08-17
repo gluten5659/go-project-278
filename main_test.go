@@ -27,20 +27,26 @@ func performGet(t *testing.T, path string) *httptest.ResponseRecorder {
 func TestPingRespondsWithPong(t *testing.T) {
 	t.Parallel()
 
-	recorder := performGet(t, "/ping")
+	response := performGet(t, "/ping").Result()
+	defer func() {
+		require.NoError(t, response.Body.Close())
+	}()
 
-	require.Equal(t, http.StatusOK, recorder.Code)
+	require.Equal(t, http.StatusOK, response.StatusCode)
 
 	var body map[string]string
 
-	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &body))
+	require.NoError(t, json.NewDecoder(response.Body).Decode(&body))
 	assert.Equal(t, map[string]string{"message": "pong"}, body)
 }
 
 func TestUnknownRouteRespondsWithNotFound(t *testing.T) {
 	t.Parallel()
 
-	recorder := performGet(t, "/unknown")
+	response := performGet(t, "/unknown").Result()
+	defer func() {
+		require.NoError(t, response.Body.Close())
+	}()
 
-	assert.Equal(t, http.StatusNotFound, recorder.Code)
+	assert.Equal(t, http.StatusNotFound, response.StatusCode)
 }
