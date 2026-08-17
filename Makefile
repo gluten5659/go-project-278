@@ -1,5 +1,7 @@
 .PHONY: build test test-coverage lint fmt lint-fix demo
 
+build:
+	go build -o bin/app .
 run:
 	go tool air
 test:
