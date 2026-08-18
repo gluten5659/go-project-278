@@ -3,6 +3,7 @@ module code
 go 1.26.5
 
 require (
+	github.com/getsentry/sentry-go v0.48.0
 	github.com/gin-gonic/gin v1.12.0
 	github.com/stretchr/testify v1.11.1
 )
