@@ -1,0 +1,7 @@
+.git
+.github
+tmp
+bin/app
+coverage.out
+*.out
+*.test
