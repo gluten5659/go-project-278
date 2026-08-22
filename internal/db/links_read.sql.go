@@ -9,7 +9,7 @@ import (
 	"context"
 )
 
-const getLinkByshort_name = `-- name: GetLinkByshort_name :one
+const getLinkByshortName = `-- name: GetLinkByshortName :one
 SELECT
     id,
     original_url,
@@ -19,8 +19,8 @@ FROM links
 WHERE short_name = $1
 `
 
-func (q *Queries) GetLinkByshort_name(ctx context.Context, shortName string) (Link, error) {
-	row := q.db.QueryRowContext(ctx, getLinkByshort_name, shortName)
+func (q *Queries) GetLinkByshortName(ctx context.Context, shortName string) (Link, error) {
+	row := q.db.QueryRowContext(ctx, getLinkByshortName, shortName)
 	var i Link
 	err := row.Scan(
 		&i.ID,
