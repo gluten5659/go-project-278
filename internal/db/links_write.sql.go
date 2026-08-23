@@ -39,7 +39,7 @@ DELETE FROM links
 WHERE id = $1
 `
 
-func (q *Queries) DeleteLink(ctx context.Context, id int32) (int64, error) {
+func (q *Queries) DeleteLink(ctx context.Context, id int64) (int64, error) {
 	result, err := q.db.ExecContext(ctx, deleteLink, id)
 	if err != nil {
 		return 0, err
@@ -57,7 +57,7 @@ RETURNING id, original_url, short_name, created_at
 `
 
 type UpdateLinkParams struct {
-	ID          int32  `json:"id"`
+	ID          int64  `json:"id"`
 	OriginalUrl string `json:"original_url"`
 	ShortName   string `json:"short_name"`
 }

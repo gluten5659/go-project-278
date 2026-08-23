@@ -75,7 +75,7 @@ func newRouter(queries *db.Queries) *gin.Engine {
 			c.JSON(http.StatusInternalServerError, nil)
 			return
 		}
-		link, err := queries.GetLinkById(c.Request.Context(), int32(id))
+		link, err := queries.GetLinkById(c.Request.Context(), id)
 		if errors.Is(err, sql.ErrNoRows) {
 			c.JSON(http.StatusNotFound, nil)
 			return

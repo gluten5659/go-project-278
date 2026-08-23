@@ -9,7 +9,7 @@ import (
 )
 
 type Link struct {
-	ID          int32     `json:"id"`
+	ID          int64     `json:"id"`
 	OriginalUrl string    `json:"original_url"`
 	ShortName   string    `json:"short_name"`
 	CreatedAt   time.Time `json:"created_at"`
