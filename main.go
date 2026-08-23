@@ -76,16 +76,34 @@ func newRouter(queries *db.Queries) *gin.Engine {
 			return
 		}
 		link, err := queries.GetLinkById(c.Request.Context(), id)
-		if errors.Is(err, sql.ErrNoRows) {
-			c.JSON(http.StatusNotFound, nil)
-			return
-		}
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, nil)
 			return
 		}
+		if errors.Is(err, sql.ErrNoRows) {
+			c.JSON(http.StatusNotFound, nil)
+			return
+		}
 		c.JSON(http.StatusOK, link)
 	})
+	ginEngine.DELETE("/api/links/:id", func(c *gin.Context) {
+		id, err := strconv.ParseInt(c.Param("id"), 10, 32)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, nil)
+			return
+		}
+		deletedCount, err := queries.DeleteLink(c.Request.Context(), id)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, nil)
+			return
+		}
+		if deletedCount == 0 {
+			c.JSON(http.StatusNotFound, nil)
+			return
+		}
+		c.JSON(http.StatusNoContent, nil)
+	})
+
 	return ginEngine
 }
 
