@@ -9,6 +9,28 @@ import (
 	"context"
 )
 
+const getLinkById = `-- name: GetLinkById :one
+SELECT DISTINCT
+    id,
+    original_url,
+    short_name,
+    created_at
+FROM links
+WHERE id = $1
+`
+
+func (q *Queries) GetLinkById(ctx context.Context, id int32) (Link, error) {
+	row := q.db.QueryRowContext(ctx, getLinkById, id)
+	var i Link
+	err := row.Scan(
+		&i.ID,
+		&i.OriginalUrl,
+		&i.ShortName,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getLinkByshortName = `-- name: GetLinkByshortName :one
 SELECT
     id,

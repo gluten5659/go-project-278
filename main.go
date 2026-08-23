@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
 	"code/internal/db"
@@ -24,7 +25,7 @@ var (
 	errMissongDatabaseDSN = errors.New("DATABASE_DSN must be set to a non-empty value ")
 )
 
-type PostBody struct {
+type CreatePostParams struct {
 	OriginalUrl string `json:"original_url"`
 	ShortName   string `json:"short_name"`
 }
@@ -51,11 +52,15 @@ func newRouter(queries *db.Queries) *gin.Engine {
 	})
 
 	ginEngine.POST("/api/links", func(c *gin.Context) {
-		var req PostBody
-		c.ShouldBindJSON(&req)
+		var req CreatePostParams
+		err := c.ShouldBindJSON(&req)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, nil)
+			return
+		}
 		args := db.CreateLinkParams{
-			req.OriginalUrl,
-			req.ShortName,
+			OriginalUrl: req.OriginalUrl,
+			ShortName:   req.ShortName,
 		}
 		link, err := queries.CreateLink(c.Request.Context(), args)
 		if err != nil {
@@ -64,7 +69,23 @@ func newRouter(queries *db.Queries) *gin.Engine {
 		}
 		c.JSON(http.StatusCreated, link)
 	})
-
+	ginEngine.GET("/api/links/:id", func(c *gin.Context) {
+		id, err := strconv.ParseInt(c.Param("id"), 10, 32)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, nil)
+			return
+		}
+		link, err := queries.GetLinkById(c.Request.Context(), int32(id))
+		if errors.Is(err, sql.ErrNoRows) {
+			c.JSON(http.StatusNotFound, nil)
+			return
+		}
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, nil)
+			return
+		}
+		c.JSON(http.StatusOK, link)
+	})
 	return ginEngine
 }
 
