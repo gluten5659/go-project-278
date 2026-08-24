@@ -18,6 +18,10 @@ linters:
         - empty
         - stdlib
         - Formatter
+    tagliatelle:
+      case:
+        rules:
+          json: snake
     revive:
       rules:
         - name: package-comments
