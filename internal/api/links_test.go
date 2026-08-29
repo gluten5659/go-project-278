@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -26,7 +27,17 @@ const (
 	collectionPath = "/api/links"
 	nullJSONBody   = "null"
 	validLinkBody  = `{"original_url": "https://example.com", "short_name": "example"}`
+	namelessBody   = `{"original_url": "https://example.com"}`
+
+	shortNameIndex       = "idx_short_name"
+	uniqueViolationCode  = "23505"
+	generatedNamePattern = `^[a-zA-Z]{8}$`
+	shortNameAttempts    = 3
 )
+
+func uniqueViolation(constraintName string) error {
+	return &pgconn.PgError{Code: uniqueViolationCode, ConstraintName: constraintName}
+}
 
 var errQueryFailed = errors.New("query failed")
 
@@ -238,70 +249,96 @@ func TestIndexLinks(t *testing.T) {
 func TestCreateLink(t *testing.T) {
 	t.Parallel()
 
-	storedLink := func(context.Context, db.CreateLinkParams) (db.Link, error) {
-		return newLink(1), nil
-	}
-
 	testCases := []struct {
-		name            string
-		body            string
-		createLink      func(ctx context.Context, parameters db.CreateLinkParams) (db.Link, error)
-		wantQueryCalled bool
-		wantParameters  db.CreateLinkParams
-		wantStatus      int
-		wantBody        string
+		name          string
+		body          string
+		takenNames    int
+		queryError    error
+		wantCalls     int
+		wantShortName string
+		wantStatus    int
+		wantBody      string
 	}{
 		{
-			name:            "creates a link from the request body",
-			body:            validLinkBody,
-			createLink:      storedLink,
-			wantQueryCalled: true,
-			wantParameters: db.CreateLinkParams{
-				OriginalUrl: originalURL,
-				ShortName:   shortName,
-			},
-			wantStatus: http.StatusCreated,
-			wantBody:   linkJSON(newLink(1)),
+			name:          "creates a link from the request body",
+			body:          validLinkBody,
+			wantCalls:     1,
+			wantShortName: shortName,
+			wantStatus:    http.StatusCreated,
+			wantBody:      linkJSON(newLink(1)),
 		},
 		{
 			name:       "rejects a malformed body",
 			body:       `{"original_url":`,
-			createLink: storedLink,
 			wantStatus: http.StatusBadRequest,
 			wantBody:   nullJSONBody,
 		},
 		{
 			name:       "rejects an empty body",
 			body:       "",
-			createLink: storedLink,
 			wantStatus: http.StatusBadRequest,
 			wantBody:   nullJSONBody,
 		},
 		{
 			name:       "rejects a body without an original url",
 			body:       `{"short_name": "example"}`,
-			createLink: storedLink,
 			wantStatus: http.StatusBadRequest,
 			wantBody:   nullJSONBody,
 		},
 		{
-			name:       "rejects a body without a short name",
-			body:       `{"original_url": "https://example.com"}`,
-			createLink: storedLink,
-			wantStatus: http.StatusBadRequest,
+			name:          "reports a conflict when the requested short name is taken",
+			body:          validLinkBody,
+			takenNames:    1,
+			wantCalls:     1,
+			wantShortName: shortName,
+			wantStatus:    http.StatusConflict,
+			wantBody:      nullJSONBody,
+		},
+		{
+			name:          "returns internal server error when creating fails",
+			body:          validLinkBody,
+			queryError:    errQueryFailed,
+			wantCalls:     1,
+			wantShortName: shortName,
+			wantStatus:    http.StatusInternalServerError,
+			wantBody:      nullJSONBody,
+		},
+		{
+			name:       "generates a short name when the body has none",
+			body:       namelessBody,
+			wantCalls:  1,
+			wantStatus: http.StatusCreated,
+			wantBody:   linkJSON(newLink(1)),
+		},
+		{
+			name:       "retries when the generated short name is taken",
+			body:       namelessBody,
+			takenNames: 1,
+			wantCalls:  2,
+			wantStatus: http.StatusCreated,
+			wantBody:   linkJSON(newLink(1)),
+		},
+		{
+			name:       "gives up once the attempts run out",
+			body:       namelessBody,
+			takenNames: shortNameAttempts,
+			wantCalls:  shortNameAttempts,
+			wantStatus: http.StatusInternalServerError,
 			wantBody:   nullJSONBody,
 		},
 		{
-			name: "returns internal server error when creating fails",
-			body: validLinkBody,
-			createLink: func(context.Context, db.CreateLinkParams) (db.Link, error) {
-				return db.Link{}, errQueryFailed
-			},
-			wantQueryCalled: true,
-			wantParameters: db.CreateLinkParams{
-				OriginalUrl: originalURL,
-				ShortName:   shortName,
-			},
+			name:       "does not retry an unrelated failure",
+			body:       namelessBody,
+			queryError: errQueryFailed,
+			wantCalls:  1,
+			wantStatus: http.StatusInternalServerError,
+			wantBody:   nullJSONBody,
+		},
+		{
+			name:       "does not retry a violation of another index",
+			body:       namelessBody,
+			queryError: uniqueViolation("links_pkey"),
+			wantCalls:  1,
 			wantStatus: http.StatusInternalServerError,
 			wantBody:   nullJSONBody,
 		},
@@ -311,29 +348,46 @@ func TestCreateLink(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			queryCalled := false
-
-			var receivedParameters db.CreateLinkParams
+			var receivedParameters []db.CreateLinkParams
 
 			queries := stubQuerier{
 				createLink: func(
-					ctx context.Context,
+					_ context.Context,
 					parameters db.CreateLinkParams,
 				) (db.Link, error) {
-					queryCalled = true
-					receivedParameters = parameters
+					receivedParameters = append(receivedParameters, parameters)
 
-					return testCase.createLink(ctx, parameters)
+					if testCase.queryError != nil {
+						return db.Link{}, testCase.queryError
+					}
+
+					if len(receivedParameters) <= testCase.takenNames {
+						return db.Link{}, uniqueViolation(shortNameIndex)
+					}
+
+					return newLink(1), nil
 				},
 			}
 
 			recorder := performRequest(t, queries, http.MethodPost, collectionPath, testCase.body)
 
 			assertResponse(t, recorder, testCase.wantStatus, testCase.wantBody)
-			require.Equal(t, testCase.wantQueryCalled, queryCalled)
+			require.Len(t, receivedParameters, testCase.wantCalls)
 
-			if testCase.wantQueryCalled {
-				assert.Equal(t, testCase.wantParameters, receivedParameters)
+			seenNames := make(map[string]bool, len(receivedParameters))
+
+			for _, parameters := range receivedParameters {
+				assert.Equal(t, originalURL, parameters.OriginalUrl)
+
+				if testCase.wantShortName == "" {
+					assert.Regexp(t, generatedNamePattern, parameters.ShortName)
+				} else {
+					assert.Equal(t, testCase.wantShortName, parameters.ShortName)
+				}
+
+				assert.False(t, seenNames[parameters.ShortName], "reused a short name")
+
+				seenNames[parameters.ShortName] = true
 			}
 		})
 	}
