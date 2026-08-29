@@ -26,6 +26,7 @@ const (
 	linkPath       = "/api/links/1"
 	collectionPath = "/api/links"
 	nullJSONBody   = "null"
+	allowedOrigin  = "http://localhost:5173"
 	validLinkBody  = `{"original_url": "https://example.com", "short_name": "example"}`
 	namelessBody   = `{"original_url": "https://example.com"}`
 
@@ -116,7 +117,7 @@ func performRequest(
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequestWithContext(t.Context(), method, path, strings.NewReader(body))
 
-	api.NewRouter(queries).ServeHTTP(recorder, request)
+	api.NewRouter(queries, []string{allowedOrigin}).ServeHTTP(recorder, request)
 
 	return recorder
 }
@@ -203,6 +204,95 @@ func TestUnroutedRequests(t *testing.T) {
 			recorder := performRequest(t, stubQuerier{}, testCase.method, testCase.path, "")
 
 			assert.Equal(t, http.StatusNotFound, recorder.Code)
+		})
+	}
+}
+
+func TestCORS(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name              string
+		method            string
+		origin            string
+		preflightMethod   string
+		wantStatus        int
+		wantAllowOrigin   string
+		wantExposeHeaders string
+	}{
+		{
+			name:              "allows a simple request from the frontend origin",
+			method:            http.MethodGet,
+			origin:            allowedOrigin,
+			wantStatus:        http.StatusOK,
+			wantAllowOrigin:   allowedOrigin,
+			wantExposeHeaders: "Content-Range",
+		},
+		{
+			name:            "answers a preflight request",
+			method:          http.MethodOptions,
+			origin:          allowedOrigin,
+			preflightMethod: http.MethodPost,
+			wantStatus:      http.StatusNoContent,
+			wantAllowOrigin: allowedOrigin,
+		},
+		{
+			name:       "rejects an unknown origin",
+			method:     http.MethodGet,
+			origin:     "http://evil.example",
+			wantStatus: http.StatusForbidden,
+		},
+		{
+			name:       "leaves a request without an origin alone",
+			method:     http.MethodGet,
+			wantStatus: http.StatusOK,
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			gin.SetMode(gin.TestMode)
+
+			queries := stubQuerier{
+				countLinks: func(context.Context) (int64, error) {
+					return 0, nil
+				},
+				getLinks: func(context.Context, db.GetLinksParams) ([]db.Link, error) {
+					return nil, nil
+				},
+			}
+
+			recorder := httptest.NewRecorder()
+			request := httptest.NewRequestWithContext(
+				t.Context(),
+				testCase.method,
+				collectionPath,
+				nil,
+			)
+
+			if testCase.origin != "" {
+				request.Header.Set("Origin", testCase.origin)
+			}
+
+			if testCase.preflightMethod != "" {
+				request.Header.Set("Access-Control-Request-Method", testCase.preflightMethod)
+			}
+
+			api.NewRouter(queries, []string{allowedOrigin}).ServeHTTP(recorder, request)
+
+			assert.Equal(t, testCase.wantStatus, recorder.Code)
+			assert.Equal(
+				t,
+				testCase.wantAllowOrigin,
+				recorder.Header().Get("Access-Control-Allow-Origin"),
+			)
+			assert.Equal(
+				t,
+				testCase.wantExposeHeaders,
+				recorder.Header().Get("Access-Control-Expose-Headers"),
+			)
 		})
 	}
 }

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/getsentry/sentry-go"
@@ -18,6 +19,8 @@ import (
 const (
 	sentryFlushTimeout  = 2 * time.Second
 	databasePingTimeout = 5 * time.Second
+
+	defaultAllowedOrigin = "http://localhost:5173"
 )
 
 var errMissingEnvironmentVariable = errors.New("must be set to a non-empty value")
@@ -29,6 +32,20 @@ func requireEnvironmentVariable(name string) (string, error) {
 	}
 
 	return value, nil
+}
+
+func allowedOrigins() []string {
+	rawOrigins, isSet := os.LookupEnv("CORS_ALLOWED_ORIGINS")
+	if !isSet || rawOrigins == "" {
+		return []string{defaultAllowedOrigin}
+	}
+
+	origins := strings.Split(rawOrigins, ",")
+	for index, origin := range origins {
+		origins[index] = strings.TrimSpace(origin)
+	}
+
+	return origins
 }
 
 func run() error {
@@ -79,7 +96,7 @@ func run() error {
 		return fmt.Errorf("conn.PingContext: %w", err)
 	}
 
-	err = api.NewRouter(db.New(conn)).Run()
+	err = api.NewRouter(db.New(conn), allowedOrigins()).Run()
 	if err != nil {
 		return fmt.Errorf("failed to run server: %w", err)
 	}
