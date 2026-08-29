@@ -1,0 +1,23 @@
+{
+  "name": "go-project-278",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "concurrently --names api,ui --prefix-colors blue,magenta \"npm:start:api\" \"npm:start:ui\"",
+    "start:api": "go tool air",
+    "start:ui": "npx start-hexlet-url-shortener-frontend"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gluten5659/go-project-278.git"
+  },
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/gluten5659/go-project-278/issues"
+  },
+  "homepage": "https://github.com/gluten5659/go-project-278#readme",
+  "dependencies": {
+    "@hexlet/project-url-shortener-frontend": "^1.0.0",
+    "concurrently": "^10.0.5"
+  }
+}

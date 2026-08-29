@@ -38,3 +38,5 @@ demo-tree/
 
 # temp files
 tmp/
+
+node_modules
