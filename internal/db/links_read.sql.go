@@ -9,6 +9,18 @@ import (
 	"context"
 )
 
+const countLinks = `-- name: CountLinks :one
+SELECT count(*)
+FROM links
+`
+
+func (q *Queries) CountLinks(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countLinks)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const getLinkById = `-- name: GetLinkById :one
 SELECT DISTINCT
     id,
@@ -60,10 +72,17 @@ SELECT
     short_name,
     created_at
 FROM links
+ORDER BY id
+LIMIT $2::bigint OFFSET $1::bigint
 `
 
-func (q *Queries) GetLinks(ctx context.Context) ([]Link, error) {
-	rows, err := q.db.QueryContext(ctx, getLinks)
+type GetLinksParams struct {
+	PageOffset int64 `json:"page_offset"`
+	PageSize   int64 `json:"page_size"`
+}
+
+func (q *Queries) GetLinks(ctx context.Context, arg GetLinksParams) ([]Link, error) {
+	rows, err := q.db.QueryContext(ctx, getLinks, arg.PageOffset, arg.PageSize)
 	if err != nil {
 		return nil, err
 	}
