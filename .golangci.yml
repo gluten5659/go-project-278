@@ -54,5 +54,5 @@ formatters:
       max-len: 100
       tab-len: 2
       shorten-comments: true
-      reformat-tags: true
+      reformat-tags: false
       chain-split-dots: true
