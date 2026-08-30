@@ -3,7 +3,6 @@ package api
 import (
 	"code/internal/db"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -15,52 +14,10 @@ import (
 )
 
 const (
-	linkIDBitSize    = 64
-	rangeBoundsCount = 2
+	linksResource = "links"
+
+	linkIDBitSize = 64
 )
-
-var errMalformedRange = errors.New("range must be [first, last] with 0 <= first <= last")
-
-type linksRange struct {
-	firstIndex int64
-	lastIndex  int64
-}
-
-func (bounds linksRange) contentRange(totalLinks int64) string {
-	return fmt.Sprintf("links %d-%d/%d", bounds.firstIndex, bounds.lastIndex, totalLinks)
-}
-
-func (bounds linksRange) pageParameters() db.GetLinksParams {
-	return db.GetLinksParams{
-		PageOffset: bounds.firstIndex,
-		PageSize:   bounds.lastIndex - bounds.firstIndex,
-	}
-}
-
-func parseLinksRange(rawRange string, totalLinks int64) (linksRange, error) {
-	if rawRange == "" {
-		return linksRange{firstIndex: 0, lastIndex: totalLinks}, nil
-	}
-
-	var bounds []int64
-
-	err := json.Unmarshal([]byte(rawRange), &bounds)
-	if err != nil {
-		return linksRange{}, fmt.Errorf("json.Unmarshal: %w", err)
-	}
-
-	if len(bounds) != rangeBoundsCount {
-		return linksRange{}, errMalformedRange
-	}
-
-	parsed := linksRange{firstIndex: bounds[0], lastIndex: bounds[1]}
-
-	if parsed.firstIndex < 0 || parsed.lastIndex < parsed.firstIndex {
-		return linksRange{}, errMalformedRange
-	}
-
-	return parsed, nil
-}
 
 type createLinkRequest struct {
 	OriginalURL string `binding:"required" json:"original_url"`
@@ -86,7 +43,7 @@ func (handler linksHandler) index(ginContext *gin.Context) {
 		return
 	}
 
-	bounds, err := parseLinksRange(ginContext.Query("range"), totalLinks)
+	bounds, err := parsePageRange(ginContext.Query("range"), totalLinks)
 	if err != nil {
 		respondWithError(ginContext, http.StatusBadRequest, err)
 
@@ -95,7 +52,10 @@ func (handler linksHandler) index(ginContext *gin.Context) {
 
 	links, err := handler.queries.GetLinks(
 		ginContext.Request.Context(),
-		bounds.pageParameters(),
+		db.GetLinksParams{
+			PageOffset: bounds.firstIndex,
+			PageSize:   bounds.pageSize(),
+		},
 	)
 	if err != nil {
 		respondWithError(ginContext, http.StatusInternalServerError, err)
@@ -107,7 +67,7 @@ func (handler linksHandler) index(ginContext *gin.Context) {
 		links = []db.Link{}
 	}
 
-	ginContext.Header("Content-Range", bounds.contentRange(totalLinks))
+	ginContext.Header("Content-Range", bounds.contentRange(linksResource, totalLinks))
 	ginContext.JSON(http.StatusOK, links)
 }
 

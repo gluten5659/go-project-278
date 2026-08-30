@@ -43,11 +43,21 @@ func uniqueViolation(constraintName string) error {
 var errQueryFailed = errors.New("query failed")
 
 type stubQuerier struct {
-	countLinks  func(ctx context.Context) (int64, error)
-	getLinks    func(ctx context.Context, parameters db.GetLinksParams) ([]db.Link, error)
-	createLink  func(ctx context.Context, parameters db.CreateLinkParams) (db.Link, error)
-	getLinkByID func(ctx context.Context, linkID int64) (db.Link, error)
-	deleteLink  func(ctx context.Context, linkID int64) (int64, error)
+	countLinks         func(ctx context.Context) (int64, error)
+	getLinks           func(ctx context.Context, parameters db.GetLinksParams) ([]db.Link, error)
+	createLink         func(ctx context.Context, parameters db.CreateLinkParams) (db.Link, error)
+	getLinkByID        func(ctx context.Context, linkID int64) (db.Link, error)
+	getLinkByShortName func(ctx context.Context, shortName string) (db.Link, error)
+	deleteLink         func(ctx context.Context, linkID int64) (int64, error)
+	countLinkVisits    func(ctx context.Context) (int64, error)
+	getLinkVisits      func(
+		ctx context.Context,
+		parameters db.GetLinkVisitsParams,
+	) ([]db.LinkVisit, error)
+	createLinkVisit func(
+		ctx context.Context,
+		parameters db.CreateLinkVisitParams,
+	) (db.LinkVisit, error)
 }
 
 func (stub stubQuerier) CountLinks(ctx context.Context) (int64, error) {
@@ -76,8 +86,29 @@ func (stub stubQuerier) DeleteLink(ctx context.Context, linkID int64) (int64, er
 	return stub.deleteLink(ctx, linkID)
 }
 
-func (stub stubQuerier) GetLinkByshortName(context.Context, string) (db.Link, error) {
-	panic("GetLinkByshortName is not routed and must never be called")
+func (stub stubQuerier) GetLinkByshortName(
+	ctx context.Context,
+	shortName string,
+) (db.Link, error) {
+	return stub.getLinkByShortName(ctx, shortName)
+}
+
+func (stub stubQuerier) CountLinkVisits(ctx context.Context) (int64, error) {
+	return stub.countLinkVisits(ctx)
+}
+
+func (stub stubQuerier) GetLinkVisits(
+	ctx context.Context,
+	parameters db.GetLinkVisitsParams,
+) ([]db.LinkVisit, error) {
+	return stub.getLinkVisits(ctx, parameters)
+}
+
+func (stub stubQuerier) CreateLinkVisit(
+	ctx context.Context,
+	parameters db.CreateLinkVisitParams,
+) (db.LinkVisit, error) {
+	return stub.createLinkVisit(ctx, parameters)
 }
 
 func (stub stubQuerier) UpdateLink(context.Context, db.UpdateLinkParams) (db.Link, error) {
@@ -304,27 +335,13 @@ func TestIndexLinks(t *testing.T) {
 		return []db.Link{newLink(1), newLink(2)}, nil
 	}
 
-	countedLinks := func(total int64) func(context.Context) (int64, error) {
-		return func(context.Context) (int64, error) {
-			return total, nil
-		}
-	}
+	storedLinksJSON := "[" + linkJSON(newLink(1)) + "," + linkJSON(newLink(2)) + "]"
 
-	testCases := []struct {
-		name             string
-		query            string
-		countLinks       func(ctx context.Context) (int64, error)
-		getLinks         func(ctx context.Context, parameters db.GetLinksParams) ([]db.Link, error)
-		wantQueryCalled  bool
-		wantParameters   db.GetLinksParams
-		wantContentRange string
-		wantStatus       int
-		wantBody         string
-	}{
+	testCases := []indexCase[db.GetLinksParams, db.Link]{
 		{
 			name:            "returns stored links",
-			countLinks:      countedLinks(2),
-			getLinks:        storedLinks,
+			countRecords:    countedRecords(2),
+			listRecords:     storedLinks,
 			wantQueryCalled: true,
 			wantParameters: db.GetLinksParams{
 				PageOffset: 0,
@@ -332,12 +349,12 @@ func TestIndexLinks(t *testing.T) {
 			},
 			wantContentRange: "links 0-2/2",
 			wantStatus:       http.StatusOK,
-			wantBody:         "[" + linkJSON(newLink(1)) + "," + linkJSON(newLink(2)) + "]",
+			wantBody:         storedLinksJSON,
 		},
 		{
-			name:       "returns an empty array when nothing is stored",
-			countLinks: countedLinks(0),
-			getLinks: func(context.Context, db.GetLinksParams) ([]db.Link, error) {
+			name:         "returns an empty array when nothing is stored",
+			countRecords: countedRecords(0),
+			listRecords: func(context.Context, db.GetLinksParams) ([]db.Link, error) {
 				return nil, nil
 			},
 			wantQueryCalled: true,
@@ -352,8 +369,8 @@ func TestIndexLinks(t *testing.T) {
 		{
 			name:            "takes the first page of a range",
 			query:           "?range=[0,10]",
-			countLinks:      countedLinks(11),
-			getLinks:        storedLinks,
+			countRecords:    countedRecords(11),
+			listRecords:     storedLinks,
 			wantQueryCalled: true,
 			wantParameters: db.GetLinksParams{
 				PageOffset: 0,
@@ -361,13 +378,13 @@ func TestIndexLinks(t *testing.T) {
 			},
 			wantContentRange: "links 0-10/11",
 			wantStatus:       http.StatusOK,
-			wantBody:         "[" + linkJSON(newLink(1)) + "," + linkJSON(newLink(2)) + "]",
+			wantBody:         storedLinksJSON,
 		},
 		{
 			name:            "skips the offset of a range",
 			query:           "?range=[5,%2010]",
-			countLinks:      countedLinks(11),
-			getLinks:        storedLinks,
+			countRecords:    countedRecords(11),
+			listRecords:     storedLinks,
 			wantQueryCalled: true,
 			wantParameters: db.GetLinksParams{
 				PageOffset: 5,
@@ -375,53 +392,53 @@ func TestIndexLinks(t *testing.T) {
 			},
 			wantContentRange: "links 5-10/11",
 			wantStatus:       http.StatusOK,
-			wantBody:         "[" + linkJSON(newLink(1)) + "," + linkJSON(newLink(2)) + "]",
+			wantBody:         storedLinksJSON,
 		},
 		{
-			name:       "rejects a malformed range",
-			query:      "?range=[0",
-			countLinks: countedLinks(11),
-			getLinks:   storedLinks,
-			wantStatus: http.StatusBadRequest,
-			wantBody:   nullJSONBody,
+			name:         "rejects a malformed range",
+			query:        "?range=[0",
+			countRecords: countedRecords(11),
+			listRecords:  storedLinks,
+			wantStatus:   http.StatusBadRequest,
+			wantBody:     nullJSONBody,
 		},
 		{
-			name:       "rejects a range without two bounds",
-			query:      "?range=[1,2,3]",
-			countLinks: countedLinks(11),
-			getLinks:   storedLinks,
-			wantStatus: http.StatusBadRequest,
-			wantBody:   nullJSONBody,
+			name:         "rejects a range without two bounds",
+			query:        "?range=[1,2,3]",
+			countRecords: countedRecords(11),
+			listRecords:  storedLinks,
+			wantStatus:   http.StatusBadRequest,
+			wantBody:     nullJSONBody,
 		},
 		{
-			name:       "rejects a negative range",
-			query:      "?range=[-1,10]",
-			countLinks: countedLinks(11),
-			getLinks:   storedLinks,
-			wantStatus: http.StatusBadRequest,
-			wantBody:   nullJSONBody,
+			name:         "rejects a negative range",
+			query:        "?range=[-1,10]",
+			countRecords: countedRecords(11),
+			listRecords:  storedLinks,
+			wantStatus:   http.StatusBadRequest,
+			wantBody:     nullJSONBody,
 		},
 		{
-			name:       "rejects a reversed range",
-			query:      "?range=[10,5]",
-			countLinks: countedLinks(11),
-			getLinks:   storedLinks,
-			wantStatus: http.StatusBadRequest,
-			wantBody:   nullJSONBody,
+			name:         "rejects a reversed range",
+			query:        "?range=[10,5]",
+			countRecords: countedRecords(11),
+			listRecords:  storedLinks,
+			wantStatus:   http.StatusBadRequest,
+			wantBody:     nullJSONBody,
 		},
 		{
 			name: "returns internal server error when counting fails",
-			countLinks: func(context.Context) (int64, error) {
+			countRecords: func(context.Context) (int64, error) {
 				return 0, errQueryFailed
 			},
-			getLinks:   storedLinks,
-			wantStatus: http.StatusInternalServerError,
-			wantBody:   nullJSONBody,
+			listRecords: storedLinks,
+			wantStatus:  http.StatusInternalServerError,
+			wantBody:    nullJSONBody,
 		},
 		{
-			name:       "returns internal server error when listing fails",
-			countLinks: countedLinks(2),
-			getLinks: func(context.Context, db.GetLinksParams) ([]db.Link, error) {
+			name:         "returns internal server error when listing fails",
+			countRecords: countedRecords(2),
+			listRecords: func(context.Context, db.GetLinksParams) ([]db.Link, error) {
 				return nil, errQueryFailed
 			},
 			wantQueryCalled: true,
@@ -434,39 +451,12 @@ func TestIndexLinks(t *testing.T) {
 		},
 	}
 
-	for _, testCase := range testCases {
-		t.Run(testCase.name, func(t *testing.T) {
-			t.Parallel()
-
-			queryCalled := false
-
-			var receivedParameters db.GetLinksParams
-
-			queries := stubQuerier{
-				countLinks: testCase.countLinks,
-				getLinks: func(
-					ctx context.Context,
-					parameters db.GetLinksParams,
-				) ([]db.Link, error) {
-					queryCalled = true
-					receivedParameters = parameters
-
-					return testCase.getLinks(ctx, parameters)
-				},
-			}
-
-			path := collectionPath + testCase.query
-			recorder := performRequest(t, queries, http.MethodGet, path, "")
-
-			assertResponse(t, recorder, testCase.wantStatus, testCase.wantBody)
-			require.Equal(t, testCase.wantQueryCalled, queryCalled)
-			assert.Equal(t, testCase.wantContentRange, recorder.Header().Get("Content-Range"))
-
-			if testCase.wantQueryCalled {
-				assert.Equal(t, testCase.wantParameters, receivedParameters)
-			}
-		})
-	}
+	runIndexCases(t, collectionPath, testCases, func(
+		countRecords func(ctx context.Context) (int64, error),
+		listRecords func(ctx context.Context, parameters db.GetLinksParams) ([]db.Link, error),
+	) stubQuerier {
+		return stubQuerier{countLinks: countRecords, getLinks: listRecords}
+	})
 }
 
 func TestCreateLink(t *testing.T) {
