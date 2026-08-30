@@ -21,6 +21,8 @@ const (
 	databasePingTimeout = 5 * time.Second
 
 	defaultAllowedOrigin = "http://localhost:5173"
+
+	serverAddress = ":8080"
 )
 
 var errMissingEnvironmentVariable = errors.New("must be set to a non-empty value")
@@ -96,7 +98,7 @@ func run() error {
 		return fmt.Errorf("conn.PingContext: %w", err)
 	}
 
-	err = api.NewRouter(db.New(conn), allowedOrigins()).Run()
+	err = api.NewRouter(db.New(conn), allowedOrigins()).Run(serverAddress)
 	if err != nil {
 		return fmt.Errorf("failed to run server: %w", err)
 	}
