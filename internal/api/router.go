@@ -43,6 +43,7 @@ func NewRouter(queries db.Querier, allowedOrigins []string) *gin.Engine {
 	ginEngine.GET("/api/links", links.index)
 	ginEngine.POST("/api/links", links.create)
 	ginEngine.GET("/api/links/:id", links.show)
+	ginEngine.PUT("/api/links/:id", links.update)
 	ginEngine.DELETE("/api/links/:id", links.destroy)
 
 	return ginEngine

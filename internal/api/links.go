@@ -19,13 +19,21 @@ const (
 	linkIDBitSize = 64
 )
 
-type createLinkRequest struct {
+type linkRequest struct {
 	OriginalURL string `binding:"required" json:"original_url"`
 	ShortName   string `json:"short_name"`
 }
 
-func (request createLinkRequest) createLinkParameters() db.CreateLinkParams {
+func (request linkRequest) createLinkParameters() db.CreateLinkParams {
 	return db.CreateLinkParams{
+		OriginalUrl: request.OriginalURL,
+		ShortName:   request.ShortName,
+	}
+}
+
+func (request linkRequest) updateLinkParameters(linkID int64) db.UpdateLinkParams {
+	return db.UpdateLinkParams{
+		ID:          linkID,
 		OriginalUrl: request.OriginalURL,
 		ShortName:   request.ShortName,
 	}
@@ -83,7 +91,7 @@ const (
 var errShortNameAttemptsExhausted = errors.New("ran out of short name attempts")
 
 func (handler linksHandler) create(ginContext *gin.Context) {
-	var request createLinkRequest
+	var request linkRequest
 
 	err := ginContext.ShouldBindJSON(&request)
 	if err != nil {
@@ -103,7 +111,7 @@ func (handler linksHandler) create(ginContext *gin.Context) {
 
 func (handler linksHandler) createWithRequestedShortName(
 	ginContext *gin.Context,
-	request createLinkRequest,
+	request linkRequest,
 ) {
 	link, err := handler.queries.CreateLink(
 		ginContext.Request.Context(),
@@ -127,7 +135,7 @@ func (handler linksHandler) createWithRequestedShortName(
 
 func (handler linksHandler) createWithGeneratedShortName(
 	ginContext *gin.Context,
-	request createLinkRequest,
+	request linkRequest,
 ) {
 	for range shortNameAttempts {
 		generatedShortName, err := randutil.Alphabet(defaultShortURLsize)
@@ -182,6 +190,57 @@ func (handler linksHandler) show(ginContext *gin.Context) {
 
 	if errors.Is(err, sql.ErrNoRows) {
 		respondWithStatus(ginContext, http.StatusNotFound)
+
+		return
+	}
+
+	if err != nil {
+		respondWithError(ginContext, http.StatusInternalServerError, err)
+
+		return
+	}
+
+	ginContext.JSON(http.StatusOK, link)
+}
+
+var errShortNameRequired = errors.New("short name is required")
+
+func (handler linksHandler) update(ginContext *gin.Context) {
+	linkID, err := parseLinkID(ginContext.Param("id"))
+	if err != nil {
+		respondWithError(ginContext, http.StatusBadRequest, err)
+
+		return
+	}
+
+	var request linkRequest
+
+	err = ginContext.ShouldBindJSON(&request)
+	if err != nil {
+		respondWithError(ginContext, http.StatusBadRequest, err)
+
+		return
+	}
+
+	if request.ShortName == "" {
+		respondWithError(ginContext, http.StatusBadRequest, errShortNameRequired)
+
+		return
+	}
+
+	link, err := handler.queries.UpdateLink(
+		ginContext.Request.Context(),
+		request.updateLinkParameters(linkID),
+	)
+
+	if errors.Is(err, sql.ErrNoRows) {
+		respondWithStatus(ginContext, http.StatusNotFound)
+
+		return
+	}
+
+	if isShortNameTaken(err) {
+		respondWithStatus(ginContext, http.StatusConflict)
 
 		return
 	}

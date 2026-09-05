@@ -21,14 +21,17 @@ import (
 )
 
 const (
-	originalURL    = "https://example.com"
-	shortName      = "example"
-	linkPath       = "/api/links/1"
-	collectionPath = "/api/links"
-	nullJSONBody   = "null"
-	allowedOrigin  = "http://localhost:5173"
-	validLinkBody  = `{"original_url": "https://example.com", "short_name": "example"}`
-	namelessBody   = `{"original_url": "https://example.com"}`
+	originalURL        = "https://example.com"
+	shortName          = "example"
+	linkPath           = "/api/links/1"
+	unparsableLinkPath = "/api/links/abc"
+	collectionPath     = "/api/links"
+	nullJSONBody       = "null"
+	allowedOrigin      = "http://localhost:5173"
+	validLinkBody      = `{"original_url": "https://example.com", "short_name": "example"}`
+	namelessBody       = `{"original_url": "https://example.com"}`
+
+	unparsableIDCase = "rejects a non numeric identifier"
 
 	shortNameIndex       = "idx_short_name"
 	uniqueViolationCode  = "23505"
@@ -49,8 +52,12 @@ type stubQuerier struct {
 	getLinkByID        func(ctx context.Context, linkID int64) (db.Link, error)
 	getLinkByShortName func(ctx context.Context, shortName string) (db.Link, error)
 	deleteLink         func(ctx context.Context, linkID int64) (int64, error)
-	countLinkVisits    func(ctx context.Context) (int64, error)
-	getLinkVisits      func(
+	updateLink         func(
+		ctx context.Context,
+		parameters db.UpdateLinkParams,
+	) (db.Link, error)
+	countLinkVisits func(ctx context.Context) (int64, error)
+	getLinkVisits   func(
 		ctx context.Context,
 		parameters db.GetLinkVisitsParams,
 	) ([]db.LinkVisit, error)
@@ -111,8 +118,11 @@ func (stub stubQuerier) CreateLinkVisit(
 	return stub.createLinkVisit(ctx, parameters)
 }
 
-func (stub stubQuerier) UpdateLink(context.Context, db.UpdateLinkParams) (db.Link, error) {
-	panic("UpdateLink is not routed and must never be called")
+func (stub stubQuerier) UpdateLink(
+	ctx context.Context,
+	parameters db.UpdateLinkParams,
+) (db.Link, error) {
+	return stub.updateLink(ctx, parameters)
 }
 
 func newLink(linkID int64) db.Link {
@@ -652,8 +662,8 @@ func TestShowLink(t *testing.T) {
 			wantBody:        nullJSONBody,
 		},
 		{
-			name:        "rejects a non numeric identifier",
-			path:        "/api/links/abc",
+			name:        unparsableIDCase,
+			path:        unparsableLinkPath,
 			getLinkByID: storedLink,
 			wantStatus:  http.StatusBadRequest,
 			wantBody:    nullJSONBody,
@@ -699,6 +709,172 @@ func TestShowLink(t *testing.T) {
 	}
 }
 
+func TestUpdateLink(t *testing.T) {
+	t.Parallel()
+
+	storedLink := func(_ context.Context, parameters db.UpdateLinkParams) (db.Link, error) {
+		return newLink(parameters.ID), nil
+	}
+
+	failedWith := func(err error) func(context.Context, db.UpdateLinkParams) (db.Link, error) {
+		return func(context.Context, db.UpdateLinkParams) (db.Link, error) {
+			return db.Link{}, err
+		}
+	}
+
+	testCases := []struct {
+		name            string
+		path            string
+		body            string
+		updateLink      func(ctx context.Context, parameters db.UpdateLinkParams) (db.Link, error)
+		wantQueryCalled bool
+		wantParameters  db.UpdateLinkParams
+		wantStatus      int
+		wantBody        string
+	}{
+		{
+			name:            "updates the link from the request body",
+			path:            linkPath,
+			body:            validLinkBody,
+			updateLink:      storedLink,
+			wantQueryCalled: true,
+			wantParameters: db.UpdateLinkParams{
+				ID:          1,
+				OriginalUrl: originalURL,
+				ShortName:   shortName,
+			},
+			wantStatus: http.StatusOK,
+			wantBody:   linkJSON(newLink(1)),
+		},
+		{
+			name:            "accepts an identifier beyond the 32 bit range",
+			path:            "/api/links/4294967296",
+			body:            validLinkBody,
+			updateLink:      storedLink,
+			wantQueryCalled: true,
+			wantParameters: db.UpdateLinkParams{
+				ID:          4294967296,
+				OriginalUrl: originalURL,
+				ShortName:   shortName,
+			},
+			wantStatus: http.StatusOK,
+			wantBody:   linkJSON(newLink(4294967296)),
+		},
+		{
+			name:       unparsableIDCase,
+			path:       unparsableLinkPath,
+			body:       validLinkBody,
+			updateLink: storedLink,
+			wantStatus: http.StatusBadRequest,
+			wantBody:   nullJSONBody,
+		},
+		{
+			name:       "rejects a malformed body",
+			path:       linkPath,
+			body:       `{"original_url":`,
+			updateLink: storedLink,
+			wantStatus: http.StatusBadRequest,
+			wantBody:   nullJSONBody,
+		},
+		{
+			name:       "rejects an empty body",
+			path:       linkPath,
+			body:       "",
+			updateLink: storedLink,
+			wantStatus: http.StatusBadRequest,
+			wantBody:   nullJSONBody,
+		},
+		{
+			name:       "rejects a body without an original url",
+			path:       linkPath,
+			body:       `{"short_name": "example"}`,
+			updateLink: storedLink,
+			wantStatus: http.StatusBadRequest,
+			wantBody:   nullJSONBody,
+		},
+		{
+			name:       "rejects a body without a short name",
+			path:       linkPath,
+			body:       namelessBody,
+			updateLink: storedLink,
+			wantStatus: http.StatusBadRequest,
+			wantBody:   nullJSONBody,
+		},
+		{
+			name:            "returns not found when the link is missing",
+			path:            linkPath,
+			body:            validLinkBody,
+			updateLink:      failedWith(sql.ErrNoRows),
+			wantQueryCalled: true,
+			wantParameters: db.UpdateLinkParams{
+				ID:          1,
+				OriginalUrl: originalURL,
+				ShortName:   shortName,
+			},
+			wantStatus: http.StatusNotFound,
+			wantBody:   nullJSONBody,
+		},
+		{
+			name:            "reports a conflict when the short name is taken",
+			path:            linkPath,
+			body:            validLinkBody,
+			updateLink:      failedWith(uniqueViolation(shortNameIndex)),
+			wantQueryCalled: true,
+			wantParameters: db.UpdateLinkParams{
+				ID:          1,
+				OriginalUrl: originalURL,
+				ShortName:   shortName,
+			},
+			wantStatus: http.StatusConflict,
+			wantBody:   nullJSONBody,
+		},
+		{
+			name:            "returns internal server error when updating fails",
+			path:            linkPath,
+			body:            validLinkBody,
+			updateLink:      failedWith(errQueryFailed),
+			wantQueryCalled: true,
+			wantParameters: db.UpdateLinkParams{
+				ID:          1,
+				OriginalUrl: originalURL,
+				ShortName:   shortName,
+			},
+			wantStatus: http.StatusInternalServerError,
+			wantBody:   nullJSONBody,
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			queryCalled := false
+			receivedParameters := db.UpdateLinkParams{}
+
+			queries := stubQuerier{
+				updateLink: func(
+					ctx context.Context,
+					parameters db.UpdateLinkParams,
+				) (db.Link, error) {
+					queryCalled = true
+					receivedParameters = parameters
+
+					return testCase.updateLink(ctx, parameters)
+				},
+			}
+
+			recorder := performRequest(t, queries, http.MethodPut, testCase.path, testCase.body)
+
+			assertResponse(t, recorder, testCase.wantStatus, testCase.wantBody)
+			require.Equal(t, testCase.wantQueryCalled, queryCalled)
+
+			if testCase.wantQueryCalled {
+				assert.Equal(t, testCase.wantParameters, receivedParameters)
+			}
+		})
+	}
+}
+
 func TestDestroyLink(t *testing.T) {
 	t.Parallel()
 
@@ -736,8 +912,8 @@ func TestDestroyLink(t *testing.T) {
 			wantBody:        nullJSONBody,
 		},
 		{
-			name:       "rejects a non numeric identifier",
-			path:       "/api/links/abc",
+			name:       unparsableIDCase,
+			path:       unparsableLinkPath,
 			deleteLink: deletedOneRow,
 			wantStatus: http.StatusBadRequest,
 			wantBody:   nullJSONBody,
