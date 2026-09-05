@@ -9,6 +9,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-playground/validator/v10"
 	"github.com/jackc/pgx/v5/pgconn"
 	"go.step.sm/crypto/randutil"
 )
@@ -17,11 +18,16 @@ const (
 	linksResource = "links"
 
 	linkIDBitSize = 64
+
+	shortNameField = "short_name"
+
+	shortNameTakenMessage    = "short name already in use"
+	shortNameRequiredMessage = "short name is required"
 )
 
 type linkRequest struct {
-	OriginalURL string `binding:"required" json:"original_url"`
-	ShortName   string `json:"short_name"`
+	OriginalURL string `json:"original_url" validate:"required,url"`
+	ShortName   string `json:"short_name"   validate:"omitempty,min=3,max=32"`
 }
 
 func (request linkRequest) createLinkParameters() db.CreateLinkParams {
@@ -40,20 +46,41 @@ func (request linkRequest) updateLinkParameters(linkID int64) db.UpdateLinkParam
 }
 
 type linksHandler struct {
-	queries db.Querier
+	queries  db.Querier
+	validate *validator.Validate
+}
+
+func (handler linksHandler) bindLinkRequest(ginContext *gin.Context) (linkRequest, bool) {
+	var request linkRequest
+
+	err := ginContext.ShouldBindJSON(&request)
+	if err != nil {
+		respondWithInvalidRequest(ginContext, err)
+
+		return request, false
+	}
+
+	err = handler.validate.Struct(request)
+	if err != nil {
+		respondWithValidationError(ginContext, err)
+
+		return request, false
+	}
+
+	return request, true
 }
 
 func (handler linksHandler) index(ginContext *gin.Context) {
 	totalLinks, err := handler.queries.CountLinks(ginContext.Request.Context())
 	if err != nil {
-		respondWithError(ginContext, http.StatusInternalServerError, err)
+		respondWithInternalError(ginContext, err)
 
 		return
 	}
 
 	bounds, err := parsePageRange(ginContext.Query("range"), totalLinks)
 	if err != nil {
-		respondWithError(ginContext, http.StatusBadRequest, err)
+		respondWithInvalidRequest(ginContext, err)
 
 		return
 	}
@@ -66,7 +93,7 @@ func (handler linksHandler) index(ginContext *gin.Context) {
 		},
 	)
 	if err != nil {
-		respondWithError(ginContext, http.StatusInternalServerError, err)
+		respondWithInternalError(ginContext, err)
 
 		return
 	}
@@ -91,12 +118,8 @@ const (
 var errShortNameAttemptsExhausted = errors.New("ran out of short name attempts")
 
 func (handler linksHandler) create(ginContext *gin.Context) {
-	var request linkRequest
-
-	err := ginContext.ShouldBindJSON(&request)
-	if err != nil {
-		respondWithError(ginContext, http.StatusBadRequest, err)
-
+	request, isValid := handler.bindLinkRequest(ginContext)
+	if !isValid {
 		return
 	}
 
@@ -119,13 +142,13 @@ func (handler linksHandler) createWithRequestedShortName(
 	)
 
 	if isShortNameTaken(err) {
-		respondWithStatus(ginContext, http.StatusConflict)
+		respondWithFieldError(ginContext, err, shortNameField, shortNameTakenMessage)
 
 		return
 	}
 
 	if err != nil {
-		respondWithError(ginContext, http.StatusInternalServerError, err)
+		respondWithInternalError(ginContext, err)
 
 		return
 	}
@@ -140,7 +163,7 @@ func (handler linksHandler) createWithGeneratedShortName(
 	for range shortNameAttempts {
 		generatedShortName, err := randutil.Alphabet(defaultShortURLsize)
 		if err != nil {
-			respondWithError(ginContext, http.StatusInternalServerError, err)
+			respondWithInternalError(ginContext, err)
 
 			return
 		}
@@ -157,7 +180,7 @@ func (handler linksHandler) createWithGeneratedShortName(
 		}
 
 		if err != nil {
-			respondWithError(ginContext, http.StatusInternalServerError, err)
+			respondWithInternalError(ginContext, err)
 
 			return
 		}
@@ -167,7 +190,7 @@ func (handler linksHandler) createWithGeneratedShortName(
 		return
 	}
 
-	respondWithError(ginContext, http.StatusInternalServerError, errShortNameAttemptsExhausted)
+	respondWithInternalError(ginContext, errShortNameAttemptsExhausted)
 }
 
 func isShortNameTaken(err error) bool {
@@ -181,7 +204,7 @@ func isShortNameTaken(err error) bool {
 func (handler linksHandler) show(ginContext *gin.Context) {
 	linkID, err := parseLinkID(ginContext.Param("id"))
 	if err != nil {
-		respondWithError(ginContext, http.StatusBadRequest, err)
+		respondWithInvalidRequest(ginContext, err)
 
 		return
 	}
@@ -195,7 +218,7 @@ func (handler linksHandler) show(ginContext *gin.Context) {
 	}
 
 	if err != nil {
-		respondWithError(ginContext, http.StatusInternalServerError, err)
+		respondWithInternalError(ginContext, err)
 
 		return
 	}
@@ -203,27 +226,28 @@ func (handler linksHandler) show(ginContext *gin.Context) {
 	ginContext.JSON(http.StatusOK, link)
 }
 
-var errShortNameRequired = errors.New("short name is required")
+var errShortNameRequired = errors.New(shortNameRequiredMessage)
 
 func (handler linksHandler) update(ginContext *gin.Context) {
 	linkID, err := parseLinkID(ginContext.Param("id"))
 	if err != nil {
-		respondWithError(ginContext, http.StatusBadRequest, err)
+		respondWithInvalidRequest(ginContext, err)
 
 		return
 	}
 
-	var request linkRequest
-
-	err = ginContext.ShouldBindJSON(&request)
-	if err != nil {
-		respondWithError(ginContext, http.StatusBadRequest, err)
-
+	request, isValid := handler.bindLinkRequest(ginContext)
+	if !isValid {
 		return
 	}
 
 	if request.ShortName == "" {
-		respondWithError(ginContext, http.StatusBadRequest, errShortNameRequired)
+		respondWithFieldError(
+			ginContext,
+			errShortNameRequired,
+			shortNameField,
+			shortNameRequiredMessage,
+		)
 
 		return
 	}
@@ -240,13 +264,13 @@ func (handler linksHandler) update(ginContext *gin.Context) {
 	}
 
 	if isShortNameTaken(err) {
-		respondWithStatus(ginContext, http.StatusConflict)
+		respondWithFieldError(ginContext, err, shortNameField, shortNameTakenMessage)
 
 		return
 	}
 
 	if err != nil {
-		respondWithError(ginContext, http.StatusInternalServerError, err)
+		respondWithInternalError(ginContext, err)
 
 		return
 	}
@@ -257,14 +281,14 @@ func (handler linksHandler) update(ginContext *gin.Context) {
 func (handler linksHandler) destroy(ginContext *gin.Context) {
 	linkID, err := parseLinkID(ginContext.Param("id"))
 	if err != nil {
-		respondWithError(ginContext, http.StatusBadRequest, err)
+		respondWithInvalidRequest(ginContext, err)
 
 		return
 	}
 
 	deletedCount, err := handler.queries.DeleteLink(ginContext.Request.Context(), linkID)
 	if err != nil {
-		respondWithError(ginContext, http.StatusInternalServerError, err)
+		respondWithInternalError(ginContext, err)
 
 		return
 	}
@@ -285,14 +309,4 @@ func parseLinkID(rawLinkID string) (int64, error) {
 	}
 
 	return linkID, nil
-}
-
-func respondWithError(ginContext *gin.Context, status int, err error) {
-	_ = ginContext.Error(err)
-
-	respondWithStatus(ginContext, status)
-}
-
-func respondWithStatus(ginContext *gin.Context, status int) {
-	ginContext.JSON(status, nil)
 }

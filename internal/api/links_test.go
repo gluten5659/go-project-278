@@ -5,6 +5,7 @@ import (
 	"code/internal/db"
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -27,11 +28,31 @@ const (
 	unparsableLinkPath = "/api/links/abc"
 	collectionPath     = "/api/links"
 	nullJSONBody       = "null"
+	invalidRequestBody = `{"error": "invalid request"}`
 	allowedOrigin      = "http://localhost:5173"
 	validLinkBody      = `{"original_url": "https://example.com", "short_name": "example"}`
 	namelessBody       = `{"original_url": "https://example.com"}`
 
 	unparsableIDCase = "rejects a non numeric identifier"
+
+	takenShortNameBody    = `{"errors": {"short_name": "short name already in use"}}`
+	requiredShortNameBody = `{"errors": {"short_name": "short name is required"}}`
+
+	linkRequestStructName = "linkRequest"
+
+	originalURLField = "original_url"
+	shortNameField   = "short_name"
+
+	requiredTag  = "required"
+	urlTag       = "url"
+	minLengthTag = "min"
+	maxLengthTag = "max"
+
+	invalidURLBody        = `{"original_url": "example.com", "short_name": "example"}`
+	shortNameTooShortBody = `{"original_url": "https://example.com", "short_name": "ab"}`
+	shortNameTooLongBody  = `{"original_url": "https://example.com",` +
+		` "short_name": "abcdefghijklmnopqrstuvwxyz0123456789"}`
+	everyFieldInvalidBody = `{"original_url": "example.com", "short_name": "ab"}`
 
 	shortNameIndex       = "idx_short_name"
 	uniqueViolationCode  = "23505"
@@ -183,6 +204,31 @@ func assertResponse(t *testing.T, recorder *httptest.ResponseRecorder, status in
 	}
 
 	assert.JSONEq(t, body, string(actualBody))
+}
+
+func fieldValidationMessage(field string, failedTag string) string {
+	return fmt.Sprintf(
+		"Key: '%s.%s' Error:Field validation for '%s' failed on the '%s' tag",
+		linkRequestStructName,
+		field,
+		field,
+		failedTag,
+	)
+}
+
+func invalidFieldsBody(t *testing.T, failedTagsByField map[string]string) string {
+	t.Helper()
+
+	messagesByField := make(map[string]string, len(failedTagsByField))
+
+	for field, failedTag := range failedTagsByField {
+		messagesByField[field] = fieldValidationMessage(field, failedTag)
+	}
+
+	body, err := json.Marshal(map[string]map[string]string{"errors": messagesByField})
+	require.NoError(t, err)
+
+	return string(body)
 }
 
 func TestPing(t *testing.T) {
@@ -410,7 +456,7 @@ func TestIndexLinks(t *testing.T) {
 			countRecords: countedRecords(11),
 			listRecords:  storedLinks,
 			wantStatus:   http.StatusBadRequest,
-			wantBody:     nullJSONBody,
+			wantBody:     invalidRequestBody,
 		},
 		{
 			name:         "rejects a range without two bounds",
@@ -418,7 +464,7 @@ func TestIndexLinks(t *testing.T) {
 			countRecords: countedRecords(11),
 			listRecords:  storedLinks,
 			wantStatus:   http.StatusBadRequest,
-			wantBody:     nullJSONBody,
+			wantBody:     invalidRequestBody,
 		},
 		{
 			name:         "rejects a negative range",
@@ -426,7 +472,7 @@ func TestIndexLinks(t *testing.T) {
 			countRecords: countedRecords(11),
 			listRecords:  storedLinks,
 			wantStatus:   http.StatusBadRequest,
-			wantBody:     nullJSONBody,
+			wantBody:     invalidRequestBody,
 		},
 		{
 			name:         "rejects a reversed range",
@@ -434,7 +480,7 @@ func TestIndexLinks(t *testing.T) {
 			countRecords: countedRecords(11),
 			listRecords:  storedLinks,
 			wantStatus:   http.StatusBadRequest,
-			wantBody:     nullJSONBody,
+			wantBody:     invalidRequestBody,
 		},
 		{
 			name: "returns internal server error when counting fails",
@@ -494,28 +540,63 @@ func TestCreateLink(t *testing.T) {
 			name:       "rejects a malformed body",
 			body:       `{"original_url":`,
 			wantStatus: http.StatusBadRequest,
-			wantBody:   nullJSONBody,
+			wantBody:   invalidRequestBody,
 		},
 		{
 			name:       "rejects an empty body",
 			body:       "",
 			wantStatus: http.StatusBadRequest,
-			wantBody:   nullJSONBody,
+			wantBody:   invalidRequestBody,
 		},
 		{
 			name:       "rejects a body without an original url",
 			body:       `{"short_name": "example"}`,
-			wantStatus: http.StatusBadRequest,
-			wantBody:   nullJSONBody,
+			wantStatus: http.StatusUnprocessableEntity,
+			wantBody: invalidFieldsBody(t, map[string]string{
+				originalURLField: requiredTag,
+			}),
 		},
 		{
-			name:          "reports a conflict when the requested short name is taken",
+			name:       "rejects an original url that is not a url",
+			body:       invalidURLBody,
+			wantStatus: http.StatusUnprocessableEntity,
+			wantBody: invalidFieldsBody(t, map[string]string{
+				originalURLField: urlTag,
+			}),
+		},
+		{
+			name:       "rejects a short name below the minimum length",
+			body:       shortNameTooShortBody,
+			wantStatus: http.StatusUnprocessableEntity,
+			wantBody: invalidFieldsBody(t, map[string]string{
+				shortNameField: minLengthTag,
+			}),
+		},
+		{
+			name:       "rejects a short name above the maximum length",
+			body:       shortNameTooLongBody,
+			wantStatus: http.StatusUnprocessableEntity,
+			wantBody: invalidFieldsBody(t, map[string]string{
+				shortNameField: maxLengthTag,
+			}),
+		},
+		{
+			name:       "reports every invalid field at once",
+			body:       everyFieldInvalidBody,
+			wantStatus: http.StatusUnprocessableEntity,
+			wantBody: invalidFieldsBody(t, map[string]string{
+				originalURLField: urlTag,
+				shortNameField:   minLengthTag,
+			}),
+		},
+		{
+			name:          "reports the taken short name as a validation failure",
 			body:          validLinkBody,
 			takenNames:    1,
 			wantCalls:     1,
 			wantShortName: shortName,
-			wantStatus:    http.StatusConflict,
-			wantBody:      nullJSONBody,
+			wantStatus:    http.StatusUnprocessableEntity,
+			wantBody:      takenShortNameBody,
 		},
 		{
 			name:          "returns internal server error when creating fails",
@@ -666,7 +747,7 @@ func TestShowLink(t *testing.T) {
 			path:        unparsableLinkPath,
 			getLinkByID: storedLink,
 			wantStatus:  http.StatusBadRequest,
-			wantBody:    nullJSONBody,
+			wantBody:    invalidRequestBody,
 		},
 		{
 			name: "returns internal server error when loading fails",
@@ -766,7 +847,7 @@ func TestUpdateLink(t *testing.T) {
 			body:       validLinkBody,
 			updateLink: storedLink,
 			wantStatus: http.StatusBadRequest,
-			wantBody:   nullJSONBody,
+			wantBody:   invalidRequestBody,
 		},
 		{
 			name:       "rejects a malformed body",
@@ -774,7 +855,7 @@ func TestUpdateLink(t *testing.T) {
 			body:       `{"original_url":`,
 			updateLink: storedLink,
 			wantStatus: http.StatusBadRequest,
-			wantBody:   nullJSONBody,
+			wantBody:   invalidRequestBody,
 		},
 		{
 			name:       "rejects an empty body",
@@ -782,23 +863,55 @@ func TestUpdateLink(t *testing.T) {
 			body:       "",
 			updateLink: storedLink,
 			wantStatus: http.StatusBadRequest,
-			wantBody:   nullJSONBody,
+			wantBody:   invalidRequestBody,
 		},
 		{
 			name:       "rejects a body without an original url",
 			path:       linkPath,
 			body:       `{"short_name": "example"}`,
 			updateLink: storedLink,
-			wantStatus: http.StatusBadRequest,
-			wantBody:   nullJSONBody,
+			wantStatus: http.StatusUnprocessableEntity,
+			wantBody: invalidFieldsBody(t, map[string]string{
+				originalURLField: requiredTag,
+			}),
+		},
+		{
+			name:       "rejects an original url that is not a url",
+			path:       linkPath,
+			body:       invalidURLBody,
+			updateLink: storedLink,
+			wantStatus: http.StatusUnprocessableEntity,
+			wantBody: invalidFieldsBody(t, map[string]string{
+				originalURLField: urlTag,
+			}),
+		},
+		{
+			name:       "rejects a short name below the minimum length",
+			path:       linkPath,
+			body:       shortNameTooShortBody,
+			updateLink: storedLink,
+			wantStatus: http.StatusUnprocessableEntity,
+			wantBody: invalidFieldsBody(t, map[string]string{
+				shortNameField: minLengthTag,
+			}),
+		},
+		{
+			name:       "rejects a short name above the maximum length",
+			path:       linkPath,
+			body:       shortNameTooLongBody,
+			updateLink: storedLink,
+			wantStatus: http.StatusUnprocessableEntity,
+			wantBody: invalidFieldsBody(t, map[string]string{
+				shortNameField: maxLengthTag,
+			}),
 		},
 		{
 			name:       "rejects a body without a short name",
 			path:       linkPath,
 			body:       namelessBody,
 			updateLink: storedLink,
-			wantStatus: http.StatusBadRequest,
-			wantBody:   nullJSONBody,
+			wantStatus: http.StatusUnprocessableEntity,
+			wantBody:   requiredShortNameBody,
 		},
 		{
 			name:            "returns not found when the link is missing",
@@ -815,7 +928,7 @@ func TestUpdateLink(t *testing.T) {
 			wantBody:   nullJSONBody,
 		},
 		{
-			name:            "reports a conflict when the short name is taken",
+			name:            "reports the taken short name as a validation failure",
 			path:            linkPath,
 			body:            validLinkBody,
 			updateLink:      failedWith(uniqueViolation(shortNameIndex)),
@@ -825,8 +938,8 @@ func TestUpdateLink(t *testing.T) {
 				OriginalUrl: originalURL,
 				ShortName:   shortName,
 			},
-			wantStatus: http.StatusConflict,
-			wantBody:   nullJSONBody,
+			wantStatus: http.StatusUnprocessableEntity,
+			wantBody:   takenShortNameBody,
 		},
 		{
 			name:            "returns internal server error when updating fails",
@@ -916,7 +1029,7 @@ func TestDestroyLink(t *testing.T) {
 			path:       unparsableLinkPath,
 			deleteLink: deletedOneRow,
 			wantStatus: http.StatusBadRequest,
-			wantBody:   nullJSONBody,
+			wantBody:   invalidRequestBody,
 		},
 		{
 			name: "returns internal server error when deleting fails",

@@ -22,14 +22,14 @@ type linkVisitsHandler struct {
 func (handler linkVisitsHandler) index(ginContext *gin.Context) {
 	totalVisits, err := handler.queries.CountLinkVisits(ginContext.Request.Context())
 	if err != nil {
-		respondWithError(ginContext, http.StatusInternalServerError, err)
+		respondWithInternalError(ginContext, err)
 
 		return
 	}
 
 	bounds, err := parsePageRange(ginContext.Query("range"), totalVisits)
 	if err != nil {
-		respondWithError(ginContext, http.StatusBadRequest, err)
+		respondWithInvalidRequest(ginContext, err)
 
 		return
 	}
@@ -42,7 +42,7 @@ func (handler linkVisitsHandler) index(ginContext *gin.Context) {
 		},
 	)
 	if err != nil {
-		respondWithError(ginContext, http.StatusInternalServerError, err)
+		respondWithInternalError(ginContext, err)
 
 		return
 	}
@@ -68,7 +68,7 @@ func (handler linkVisitsHandler) redirect(ginContext *gin.Context) {
 	}
 
 	if err != nil {
-		respondWithError(ginContext, http.StatusInternalServerError, err)
+		respondWithInternalError(ginContext, err)
 
 		return
 	}
@@ -84,7 +84,7 @@ func (handler linkVisitsHandler) redirect(ginContext *gin.Context) {
 		},
 	)
 	if err != nil {
-		respondWithError(ginContext, http.StatusInternalServerError, err)
+		respondWithInternalError(ginContext, err)
 
 		return
 	}

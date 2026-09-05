@@ -247,7 +247,7 @@ func TestIndexLinkVisits(t *testing.T) {
 			countRecords: countedRecords(357),
 			listRecords:  storedVisits,
 			wantStatus:   http.StatusBadRequest,
-			wantBody:     nullJSONBody,
+			wantBody:     invalidRequestBody,
 		},
 		{
 			name: "returns internal server error when counting fails",

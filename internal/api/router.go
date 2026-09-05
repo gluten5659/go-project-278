@@ -33,7 +33,7 @@ func NewRouter(queries db.Querier, allowedOrigins []string) *gin.Engine {
 
 	ginEngine.GET("/ping", pong)
 
-	links := linksHandler{queries: queries}
+	links := linksHandler{queries: queries, validate: newValidator()}
 	linkVisits := linkVisitsHandler{queries: queries}
 
 	ginEngine.GET("/r/:code", linkVisits.redirect)
