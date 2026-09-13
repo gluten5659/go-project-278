@@ -2,16 +2,17 @@ package api
 
 import (
 	"code/internal/db"
+	"crypto/rand"
 	"database/sql"
 	"errors"
 	"fmt"
+	"math/big"
 	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 	"github.com/jackc/pgx/v5/pgconn"
-	"go.step.sm/crypto/randutil"
 )
 
 const (
@@ -111,6 +112,8 @@ func (handler linksHandler) index(ginContext *gin.Context) {
 const (
 	defaultShortURLsize = 8
 
+	shortNameAlphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
 	shortNameAttempts = 3
 
 	uniqueViolationCode = "23505"
@@ -165,7 +168,7 @@ func (handler linksHandler) createWithGeneratedShortName(
 	request createLinkRequest,
 ) {
 	for range shortNameAttempts {
-		generatedShortName, err := randutil.Alphabet(defaultShortURLsize)
+		generatedShortName, err := generateShortName()
 		if err != nil {
 			respondWithInternalError(ginContext, err)
 
@@ -195,6 +198,22 @@ func (handler linksHandler) createWithGeneratedShortName(
 	}
 
 	respondWithUnavailable(ginContext, errShortNameAttemptsExhausted)
+}
+
+func generateShortName() (string, error) {
+	name := make([]byte, defaultShortURLsize)
+	alphabetSize := big.NewInt(int64(len(shortNameAlphabet)))
+
+	for index := range name {
+		position, err := rand.Int(rand.Reader, alphabetSize)
+		if err != nil {
+			return "", fmt.Errorf("read random source: %w", err)
+		}
+
+		name[index] = shortNameAlphabet[position.Int64()]
+	}
+
+	return string(name), nil
 }
 
 func isShortNameTaken(err error) bool {
