@@ -20,6 +20,7 @@ import (
 const (
 	sentryFlushTimeout  = 2 * time.Second
 	databasePingTimeout = 5 * time.Second
+	readHeaderTimeout   = 5 * time.Second
 
 	defaultAllowedOrigin = "http://localhost:5173"
 
@@ -117,7 +118,19 @@ func Run() error {
 		return fmt.Errorf("ping database: %w", err)
 	}
 
-	err = api.NewRouter(db.New(conn), allowedOrigins(), reportToSentry).Run(serverAddress)
+	router := api.NewRouter(db.New(conn), allowedOrigins(), reportToSentry)
+
+	return serve(router)
+}
+
+func serve(router http.Handler) error {
+	server := &http.Server{
+		Addr:              serverAddress,
+		Handler:           router,
+		ReadHeaderTimeout: readHeaderTimeout,
+	}
+
+	err := server.ListenAndServe()
 	if err != nil {
 		return fmt.Errorf("run server on %s: %w", serverAddress, err)
 	}
