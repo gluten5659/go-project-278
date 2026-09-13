@@ -397,10 +397,10 @@ func TestCORS(t *testing.T) {
 	}
 }
 
-func TestIndexLinks(t *testing.T) {
+func TestListLinks(t *testing.T) {
 	t.Parallel()
 
-	runIndexContract(t, indexFixture[db.GetLinksParams, db.Link]{
+	runListContract(t, listFixture[db.GetLinksParams, db.Link]{
 		resource:    linksResource,
 		path:        collectionPath,
 		records:     []db.Link{newLink(1), newLink(2)},

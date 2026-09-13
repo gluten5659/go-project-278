@@ -205,10 +205,10 @@ func TestRedirect(t *testing.T) {
 	}
 }
 
-func TestIndexLinkVisits(t *testing.T) {
+func TestListLinkVisits(t *testing.T) {
 	t.Parallel()
 
-	runIndexContract(t, indexFixture[db.GetLinkVisitsParams, db.LinkVisit]{
+	runListContract(t, listFixture[db.GetLinkVisitsParams, db.LinkVisit]{
 		resource:    linkVisitsResource,
 		path:        visitsPath,
 		records:     []db.LinkVisit{newVisit(1), newVisit(2)},

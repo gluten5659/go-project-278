@@ -20,7 +20,7 @@ type linkVisitsHandler struct {
 	reportError ErrorReporter
 }
 
-func (handler linkVisitsHandler) index(ginContext *gin.Context) {
+func (handler linkVisitsHandler) list(ginContext *gin.Context) {
 	totalVisits, err := handler.queries.CountLinkVisits(ginContext.Request.Context())
 	if err != nil {
 		respondWithInternalError(ginContext, err)

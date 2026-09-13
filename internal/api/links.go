@@ -73,7 +73,7 @@ func bindRequest(ginContext *gin.Context, validate *validator.Validate, request 
 	return true
 }
 
-func (handler linksHandler) index(ginContext *gin.Context) {
+func (handler linksHandler) list(ginContext *gin.Context) {
 	totalLinks, err := handler.queries.CountLinks(ginContext.Request.Context())
 	if err != nil {
 		respondWithInternalError(ginContext, err)
@@ -110,7 +110,7 @@ func (handler linksHandler) index(ginContext *gin.Context) {
 }
 
 const (
-	defaultShortURLsize = 8
+	shortNameLength = 8
 
 	shortNameAlphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
@@ -201,7 +201,7 @@ func (handler linksHandler) createWithGeneratedShortName(
 }
 
 func generateShortName() (string, error) {
-	name := make([]byte, defaultShortURLsize)
+	name := make([]byte, shortNameLength)
 	alphabetSize := big.NewInt(int64(len(shortNameAlphabet)))
 
 	for index := range name {

@@ -44,9 +44,9 @@ func NewRouter(
 
 	ginEngine.GET("/r/:code", linkVisits.redirect)
 
-	ginEngine.GET("/api/link_visits", linkVisits.index)
+	ginEngine.GET("/api/link_visits", linkVisits.list)
 
-	ginEngine.GET("/api/links", links.index)
+	ginEngine.GET("/api/links", links.list)
 	ginEngine.POST("/api/links", links.create)
 	ginEngine.GET("/api/links/:id", links.show)
 	ginEngine.PUT("/api/links/:id", links.update)

@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type indexFixture[Parameters any, Record any] struct {
+type listFixture[Parameters any, Record any] struct {
 	resource    string
 	path        string
 	records     []Record
@@ -21,7 +21,7 @@ type indexFixture[Parameters any, Record any] struct {
 	) stubQuerier
 }
 
-type indexCase[Parameters any, Record any] struct {
+type listCase[Parameters any, Record any] struct {
 	name             string
 	query            string
 	countRecords     func(ctx context.Context) (int64, error)
@@ -39,9 +39,9 @@ func countedRecords(total int64) func(context.Context) (int64, error) {
 	}
 }
 
-func indexContractCases[Parameters any, Record any](
-	fixture indexFixture[Parameters, Record],
-) []indexCase[Parameters, Record] {
+func listContractCases[Parameters any, Record any](
+	fixture listFixture[Parameters, Record],
+) []listCase[Parameters, Record] {
 	storedRecords := func(context.Context, Parameters) ([]Record, error) {
 		return fixture.records, nil
 	}
@@ -50,7 +50,7 @@ func indexContractCases[Parameters any, Record any](
 		return nil, errQueryFailed
 	}
 
-	return []indexCase[Parameters, Record]{
+	return []listCase[Parameters, Record]{
 		{
 			name:             "returns stored records",
 			countRecords:     countedRecords(2),
@@ -113,13 +113,13 @@ func indexContractCases[Parameters any, Record any](
 	}
 }
 
-func runIndexContract[Parameters any, Record any](
+func runListContract[Parameters any, Record any](
 	t *testing.T,
-	fixture indexFixture[Parameters, Record],
+	fixture listFixture[Parameters, Record],
 ) {
 	t.Helper()
 
-	for _, testCase := range indexContractCases(fixture) {
+	for _, testCase := range listContractCases(fixture) {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
