@@ -35,9 +35,15 @@ const (
 
 var errMissingEnvironmentVariable = errors.New("must be set to a non-empty value")
 
-func requireEnvironmentVariable(name string) (string, error) {
+func environmentVariable(name string) (string, bool) {
 	value, isSet := os.LookupEnv(name)
-	if !isSet || value == "" {
+
+	return value, isSet && value != ""
+}
+
+func requireEnvironmentVariable(name string) (string, error) {
+	value, isSet := environmentVariable(name)
+	if !isSet {
 		return "", fmt.Errorf("%s %w", name, errMissingEnvironmentVariable)
 	}
 
@@ -45,8 +51,8 @@ func requireEnvironmentVariable(name string) (string, error) {
 }
 
 func allowedOrigins() []string {
-	rawOrigins, isSet := os.LookupEnv("CORS_ALLOWED_ORIGINS")
-	if !isSet || rawOrigins == "" {
+	rawOrigins, isSet := environmentVariable("CORS_ALLOWED_ORIGINS")
+	if !isSet {
 		return []string{defaultAllowedOrigin}
 	}
 
@@ -59,8 +65,8 @@ func allowedOrigins() []string {
 }
 
 func baseURL() string {
-	rawBaseURL, isSet := os.LookupEnv("BASE_URL")
-	if !isSet || rawBaseURL == "" {
+	rawBaseURL, isSet := environmentVariable("BASE_URL")
+	if !isSet {
 		return defaultBaseURL
 	}
 
@@ -68,8 +74,8 @@ func baseURL() string {
 }
 
 func startSentry() error {
-	sentryDSN, isSet := os.LookupEnv("SENTRY_DSN")
-	if !isSet || sentryDSN == "" {
+	sentryDSN, isSet := environmentVariable("SENTRY_DSN")
+	if !isSet {
 		log.Print("SENTRY_DSN is not set, error reporting is disabled")
 
 		return nil
