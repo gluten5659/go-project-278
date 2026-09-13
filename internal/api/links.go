@@ -21,23 +21,27 @@ const (
 
 	shortNameField = "short_name"
 
-	shortNameTakenMessage    = "short name already in use"
-	shortNameRequiredMessage = "short name is required"
+	shortNameTakenMessage = "short name already in use"
 )
 
-type linkRequest struct {
+type createLinkRequest struct {
 	OriginalURL string `json:"original_url" validate:"required,url"`
 	ShortName   string `json:"short_name"   validate:"omitempty,min=3,max=32"`
 }
 
-func (request linkRequest) createLinkParameters() db.CreateLinkParams {
+func (request createLinkRequest) createLinkParameters() db.CreateLinkParams {
 	return db.CreateLinkParams{
 		OriginalUrl: request.OriginalURL,
 		ShortName:   request.ShortName,
 	}
 }
 
-func (request linkRequest) updateLinkParameters(linkID int64) db.UpdateLinkParams {
+type updateLinkRequest struct {
+	OriginalURL string `json:"original_url" validate:"required,url"`
+	ShortName   string `json:"short_name"   validate:"required,min=3,max=32"`
+}
+
+func (request updateLinkRequest) updateLinkParameters(linkID int64) db.UpdateLinkParams {
 	return db.UpdateLinkParams{
 		ID:          linkID,
 		OriginalUrl: request.OriginalURL,
@@ -50,24 +54,22 @@ type linksHandler struct {
 	validate *validator.Validate
 }
 
-func (handler linksHandler) bindLinkRequest(ginContext *gin.Context) (linkRequest, bool) {
-	var request linkRequest
-
-	err := ginContext.ShouldBindJSON(&request)
+func bindRequest(ginContext *gin.Context, validate *validator.Validate, request any) bool {
+	err := ginContext.ShouldBindJSON(request)
 	if err != nil {
 		respondWithInvalidRequest(ginContext, err)
 
-		return request, false
+		return false
 	}
 
-	err = handler.validate.Struct(request)
+	err = validate.Struct(request)
 	if err != nil {
 		respondWithValidationError(ginContext, err)
 
-		return request, false
+		return false
 	}
 
-	return request, true
+	return true
 }
 
 func (handler linksHandler) index(ginContext *gin.Context) {
@@ -118,7 +120,9 @@ const (
 var errShortNameAttemptsExhausted = errors.New("ran out of short name attempts")
 
 func (handler linksHandler) create(ginContext *gin.Context) {
-	request, isValid := handler.bindLinkRequest(ginContext)
+	var request createLinkRequest
+
+	isValid := bindRequest(ginContext, handler.validate, &request)
 	if !isValid {
 		return
 	}
@@ -134,7 +138,7 @@ func (handler linksHandler) create(ginContext *gin.Context) {
 
 func (handler linksHandler) createWithRequestedShortName(
 	ginContext *gin.Context,
-	request linkRequest,
+	request createLinkRequest,
 ) {
 	link, err := handler.queries.CreateLink(
 		ginContext.Request.Context(),
@@ -158,7 +162,7 @@ func (handler linksHandler) createWithRequestedShortName(
 
 func (handler linksHandler) createWithGeneratedShortName(
 	ginContext *gin.Context,
-	request linkRequest,
+	request createLinkRequest,
 ) {
 	for range shortNameAttempts {
 		generatedShortName, err := randutil.Alphabet(defaultShortURLsize)
@@ -226,8 +230,6 @@ func (handler linksHandler) show(ginContext *gin.Context) {
 	ginContext.JSON(http.StatusOK, link)
 }
 
-var errShortNameRequired = errors.New(shortNameRequiredMessage)
-
 func (handler linksHandler) update(ginContext *gin.Context) {
 	linkID, err := parseLinkID(ginContext.Param("id"))
 	if err != nil {
@@ -236,19 +238,10 @@ func (handler linksHandler) update(ginContext *gin.Context) {
 		return
 	}
 
-	request, isValid := handler.bindLinkRequest(ginContext)
+	var request updateLinkRequest
+
+	isValid := bindRequest(ginContext, handler.validate, &request)
 	if !isValid {
-		return
-	}
-
-	if request.ShortName == "" {
-		respondWithFieldError(
-			ginContext,
-			errShortNameRequired,
-			shortNameField,
-			shortNameRequiredMessage,
-		)
-
 		return
 	}
 

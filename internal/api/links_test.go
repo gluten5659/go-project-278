@@ -36,10 +36,10 @@ const (
 
 	unparsableIDCase = "rejects a non numeric identifier"
 
-	takenShortNameBody    = `{"errors": {"short_name": "short name already in use"}}`
-	requiredShortNameBody = `{"errors": {"short_name": "short name is required"}}`
+	takenShortNameBody = `{"errors": {"short_name": "short name already in use"}}`
 
-	linkRequestStructName = "linkRequest"
+	createRequestStructName = "createLinkRequest"
+	updateRequestStructName = "updateLinkRequest"
 
 	originalURLField = "original_url"
 	shortNameField   = "short_name"
@@ -212,23 +212,27 @@ func assertResponse(t *testing.T, recorder *httptest.ResponseRecorder, status in
 	assert.JSONEq(t, body, string(actualBody))
 }
 
-func fieldValidationMessage(field string, failedTag string) string {
+func fieldValidationMessage(structName string, field string, failedTag string) string {
 	return fmt.Sprintf(
 		"Key: '%s.%s' Error:Field validation for '%s' failed on the '%s' tag",
-		linkRequestStructName,
+		structName,
 		field,
 		field,
 		failedTag,
 	)
 }
 
-func invalidFieldsBody(t *testing.T, failedTagsByField map[string]string) string {
+func invalidFieldsBody(
+	t *testing.T,
+	structName string,
+	failedTagsByField map[string]string,
+) string {
 	t.Helper()
 
 	messagesByField := make(map[string]string, len(failedTagsByField))
 
 	for field, failedTag := range failedTagsByField {
-		messagesByField[field] = fieldValidationMessage(field, failedTag)
+		messagesByField[field] = fieldValidationMessage(structName, field, failedTag)
 	}
 
 	body, err := json.Marshal(map[string]map[string]string{"errors": messagesByField})
@@ -448,7 +452,7 @@ func TestCreateLink(t *testing.T) {
 			name:       "rejects a body without an original url",
 			body:       `{"short_name": "example"}`,
 			wantStatus: http.StatusUnprocessableEntity,
-			wantBody: invalidFieldsBody(t, map[string]string{
+			wantBody: invalidFieldsBody(t, createRequestStructName, map[string]string{
 				originalURLField: requiredTag,
 			}),
 		},
@@ -456,7 +460,7 @@ func TestCreateLink(t *testing.T) {
 			name:       "rejects an original url that is not a url",
 			body:       invalidURLBody,
 			wantStatus: http.StatusUnprocessableEntity,
-			wantBody: invalidFieldsBody(t, map[string]string{
+			wantBody: invalidFieldsBody(t, createRequestStructName, map[string]string{
 				originalURLField: urlTag,
 			}),
 		},
@@ -464,7 +468,7 @@ func TestCreateLink(t *testing.T) {
 			name:       "rejects a short name below the minimum length",
 			body:       shortNameTooShortBody,
 			wantStatus: http.StatusUnprocessableEntity,
-			wantBody: invalidFieldsBody(t, map[string]string{
+			wantBody: invalidFieldsBody(t, createRequestStructName, map[string]string{
 				shortNameField: minLengthTag,
 			}),
 		},
@@ -472,7 +476,7 @@ func TestCreateLink(t *testing.T) {
 			name:       "rejects a short name above the maximum length",
 			body:       shortNameTooLongBody,
 			wantStatus: http.StatusUnprocessableEntity,
-			wantBody: invalidFieldsBody(t, map[string]string{
+			wantBody: invalidFieldsBody(t, createRequestStructName, map[string]string{
 				shortNameField: maxLengthTag,
 			}),
 		},
@@ -480,7 +484,7 @@ func TestCreateLink(t *testing.T) {
 			name:       "reports every invalid field at once",
 			body:       everyFieldInvalidBody,
 			wantStatus: http.StatusUnprocessableEntity,
-			wantBody: invalidFieldsBody(t, map[string]string{
+			wantBody: invalidFieldsBody(t, createRequestStructName, map[string]string{
 				originalURLField: urlTag,
 				shortNameField:   minLengthTag,
 			}),
@@ -767,7 +771,7 @@ func TestUpdateLink(t *testing.T) {
 			body:       `{"short_name": "example"}`,
 			updateLink: storedLink,
 			wantStatus: http.StatusUnprocessableEntity,
-			wantBody: invalidFieldsBody(t, map[string]string{
+			wantBody: invalidFieldsBody(t, updateRequestStructName, map[string]string{
 				originalURLField: requiredTag,
 			}),
 		},
@@ -777,7 +781,7 @@ func TestUpdateLink(t *testing.T) {
 			body:       invalidURLBody,
 			updateLink: storedLink,
 			wantStatus: http.StatusUnprocessableEntity,
-			wantBody: invalidFieldsBody(t, map[string]string{
+			wantBody: invalidFieldsBody(t, updateRequestStructName, map[string]string{
 				originalURLField: urlTag,
 			}),
 		},
@@ -787,7 +791,7 @@ func TestUpdateLink(t *testing.T) {
 			body:       shortNameTooShortBody,
 			updateLink: storedLink,
 			wantStatus: http.StatusUnprocessableEntity,
-			wantBody: invalidFieldsBody(t, map[string]string{
+			wantBody: invalidFieldsBody(t, updateRequestStructName, map[string]string{
 				shortNameField: minLengthTag,
 			}),
 		},
@@ -797,7 +801,7 @@ func TestUpdateLink(t *testing.T) {
 			body:       shortNameTooLongBody,
 			updateLink: storedLink,
 			wantStatus: http.StatusUnprocessableEntity,
-			wantBody: invalidFieldsBody(t, map[string]string{
+			wantBody: invalidFieldsBody(t, updateRequestStructName, map[string]string{
 				shortNameField: maxLengthTag,
 			}),
 		},
@@ -807,7 +811,9 @@ func TestUpdateLink(t *testing.T) {
 			body:       namelessBody,
 			updateLink: storedLink,
 			wantStatus: http.StatusUnprocessableEntity,
-			wantBody:   requiredShortNameBody,
+			wantBody: invalidFieldsBody(t, updateRequestStructName, map[string]string{
+				shortNameField: requiredTag,
+			}),
 		},
 		{
 			name:            "returns not found when the link is missing",
