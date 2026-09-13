@@ -81,9 +81,11 @@ to thirty two characters, and unique across all links.
 
 When the field is left out on create, the server generates a name of eight
 letters. A generated name can collide with one that already exists, so the
-server tries three times before giving up and answering `500`. Update never
-generates anything. A short name is what people share, so replacing it silently
-would break every link already handed out.
+server tries three times before giving up and answering `503`. Update never
+generates anything, because a short name is what people share and replacing it
+behind their back would break every link already handed out. Changing it through
+an update does break those links, so that is a deliberate call by whoever edits
+the record.
 
 ### Errors
 
@@ -121,8 +123,15 @@ out the real failures.
 ### Pagination
 
 Both list endpoints take `?range=[first,last]` and answer with a `Content-Range`
-header of the form `links 0-10/42`, which is what the admin UI reads to build its
-pager. Without the parameter the whole collection comes back.
+header of the form `links 0-9/42`. Both bounds are inclusive, so `[0,9]` asks for
+ten records. That is what the admin UI reads to build its pager. Without the
+parameter the whole collection comes back, and a range asking for more than a
+thousand records is refused.
+
+### Deleting a link
+
+Deleting a link deletes the visits recorded for it. The statistics belong to the
+link and do not outlive it.
 
 ## Development
 
