@@ -11,6 +11,20 @@ permissions:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: app
+          POSTGRES_PASSWORD: secret
+          POSTGRES_DB: go_project_278_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6.3.0
@@ -19,6 +33,8 @@ jobs:
           cache: true
       - run: make build
       - run: make test-coverage
+        env:
+          TEST_DATABASE_DSN: postgres://app:secret@localhost:5432/go_project_278_test?sslmode=disable
 
   lint:
     runs-on: ubuntu-latest

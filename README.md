@@ -136,6 +136,14 @@ Queries are generated from `db/query/*.sql` by [sqlc](https://sqlc.dev), so
 after changing SQL run `go tool sqlc generate` and commit the result in
 `internal/db`.
 
+The query tests need a database of their own and skip when `TEST_DATABASE_DSN`
+is unset. They apply the migrations themselves and run every case in a
+transaction that is rolled back, so the database is left as they found it.
+
+```
+TEST_DATABASE_DSN="postgres://user:password@localhost:5432/database_test?sslmode=disable" make test
+```
+
 ## Deployment
 
 The `Dockerfile` builds the admin UI and the API into one image. Caddy serves the

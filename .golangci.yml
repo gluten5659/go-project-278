@@ -31,7 +31,6 @@ linters:
   exclusions:
     paths:
       - bin
-      - internal/db
     rules:
       - linters:
           - gosec
