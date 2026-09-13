@@ -109,6 +109,11 @@ which leaves the client a single place to look for field errors.
 {"errors": {"short_name": "short name already in use"}}
 ```
 
+Anything that answers `500` is also sent to Sentry along with the request, as
+long as `SENTRY_DSN` is set. A panic is reported the same way and still answers
+`500`. Client errors never reach Sentry, so a flood of bad requests cannot drown
+out the real failures.
+
 ### Pagination
 
 Both list endpoints take `?range=[first,last]` and answer with a `Content-Range`

@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -50,18 +51,15 @@ func allowedOrigins() []string {
 	return origins
 }
 
-func run() error {
-	sentryDSN, err := requireEnvironmentVariable("SENTRY_DSN")
-	if err != nil {
-		return err
+func startSentry() error {
+	sentryDSN, isSet := os.LookupEnv("SENTRY_DSN")
+	if !isSet || sentryDSN == "" {
+		log.Print("SENTRY_DSN is not set, error reporting is disabled")
+
+		return nil
 	}
 
-	databaseDSN, err := requireEnvironmentVariable("DATABASE_DSN")
-	if err != nil {
-		return err
-	}
-
-	err = sentry.Init(sentry.ClientOptions{
+	err := sentry.Init(sentry.ClientOptions{
 		Dsn: sentryDSN,
 
 		SendDefaultPII: true,
@@ -74,6 +72,26 @@ func run() error {
 	})
 	if err != nil {
 		return fmt.Errorf("sentry.Init: %w", err)
+	}
+
+	return nil
+}
+
+func reportToSentry(request *http.Request, err error) {
+	hub := sentry.CurrentHub().Clone()
+	hub.Scope().SetRequest(request)
+	hub.CaptureException(err)
+}
+
+func run() error {
+	databaseDSN, err := requireEnvironmentVariable("DATABASE_DSN")
+	if err != nil {
+		return err
+	}
+
+	err = startSentry()
+	if err != nil {
+		return err
 	}
 
 	defer sentry.Flush(sentryFlushTimeout)
@@ -98,7 +116,7 @@ func run() error {
 		return fmt.Errorf("conn.PingContext: %w", err)
 	}
 
-	err = api.NewRouter(db.New(conn), allowedOrigins()).Run(serverAddress)
+	err = api.NewRouter(db.New(conn), allowedOrigins(), reportToSentry).Run(serverAddress)
 	if err != nil {
 		return fmt.Errorf("failed to run server: %w", err)
 	}

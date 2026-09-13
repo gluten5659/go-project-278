@@ -11,10 +11,16 @@ import (
 
 const corsPreflightMaxAge = 12 * time.Hour
 
-func NewRouter(queries db.Querier, allowedOrigins []string) *gin.Engine {
+func NewRouter(
+	queries db.Querier,
+	allowedOrigins []string,
+	reportError ErrorReporter,
+) *gin.Engine {
 	ginEngine := gin.Default()
 	ginEngine.TrustedPlatform = gin.PlatformCloudflare
 	_ = ginEngine.SetTrustedProxies([]string{"127.0.0.1", "::1"})
+
+	ginEngine.Use(reportServerErrors(reportError))
 
 	ginEngine.Use(cors.New(cors.Config{
 		AllowOrigins: allowedOrigins,

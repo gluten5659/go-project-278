@@ -83,7 +83,7 @@ func performRedirect(
 		request.Header.Set(name, value)
 	}
 
-	api.NewRouter(queries, []string{allowedOrigin}).ServeHTTP(recorder, request)
+	api.NewRouter(queries, []string{allowedOrigin}, discardErrorReports).ServeHTTP(recorder, request)
 
 	return recorder
 }

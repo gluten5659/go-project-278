@@ -48,6 +48,7 @@ const (
 	minLengthTag = "min"
 	maxLengthTag = "max"
 
+	malformedBody         = `{"original_url":`
 	invalidURLBody        = `{"original_url": "example.com", "short_name": "example"}`
 	shortNameTooShortBody = `{"original_url": "https://example.com", "short_name": "ab"}`
 	shortNameTooLongBody  = `{"original_url": "https://example.com",` +
@@ -165,6 +166,8 @@ func linkJSON(link db.Link) string {
 	)
 }
 
+func discardErrorReports(*http.Request, error) {}
+
 func performRequest(
 	t *testing.T,
 	queries db.Querier,
@@ -179,7 +182,7 @@ func performRequest(
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequestWithContext(t.Context(), method, path, strings.NewReader(body))
 
-	api.NewRouter(queries, []string{allowedOrigin}).ServeHTTP(recorder, request)
+	api.NewRouter(queries, []string{allowedOrigin}, discardErrorReports).ServeHTTP(recorder, request)
 
 	return recorder
 }
@@ -367,7 +370,8 @@ func TestCORS(t *testing.T) {
 				request.Header.Set("Access-Control-Request-Method", testCase.preflightMethod)
 			}
 
-			api.NewRouter(queries, []string{allowedOrigin}).ServeHTTP(recorder, request)
+			api.NewRouter(queries, []string{allowedOrigin}, discardErrorReports).
+				ServeHTTP(recorder, request)
 
 			assert.Equal(t, testCase.wantStatus, recorder.Code)
 			assert.Equal(
@@ -538,7 +542,7 @@ func TestCreateLink(t *testing.T) {
 		},
 		{
 			name:       "rejects a malformed body",
-			body:       `{"original_url":`,
+			body:       malformedBody,
 			wantStatus: http.StatusBadRequest,
 			wantBody:   invalidRequestBody,
 		},
@@ -852,7 +856,7 @@ func TestUpdateLink(t *testing.T) {
 		{
 			name:       "rejects a malformed body",
 			path:       linkPath,
-			body:       `{"original_url":`,
+			body:       malformedBody,
 			updateLink: storedLink,
 			wantStatus: http.StatusBadRequest,
 			wantBody:   invalidRequestBody,
