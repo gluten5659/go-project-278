@@ -216,7 +216,7 @@ func (handler linksHandler) show(ginContext *gin.Context) {
 	link, err := handler.queries.GetLinkById(ginContext.Request.Context(), linkID)
 
 	if errors.Is(err, sql.ErrNoRows) {
-		respondWithStatus(ginContext, http.StatusNotFound)
+		respondWithNotFound(ginContext)
 
 		return
 	}
@@ -251,7 +251,7 @@ func (handler linksHandler) update(ginContext *gin.Context) {
 	)
 
 	if errors.Is(err, sql.ErrNoRows) {
-		respondWithStatus(ginContext, http.StatusNotFound)
+		respondWithNotFound(ginContext)
 
 		return
 	}
@@ -287,7 +287,7 @@ func (handler linksHandler) destroy(ginContext *gin.Context) {
 	}
 
 	if deletedCount == 0 {
-		respondWithStatus(ginContext, http.StatusNotFound)
+		respondWithNotFound(ginContext)
 
 		return
 	}

@@ -10,7 +10,11 @@ import (
 	"github.com/go-playground/validator/v10"
 )
 
-const invalidRequestMessage = "invalid request"
+const (
+	invalidRequestMessage = "invalid request"
+	notFoundMessage       = "not found"
+	internalErrorMessage  = "internal server error"
+)
 
 func newValidator() *validator.Validate {
 	validate := validator.New()
@@ -57,15 +61,19 @@ func respondWithFieldError(ginContext *gin.Context, cause error, field string, m
 func respondWithInvalidRequest(ginContext *gin.Context, err error) {
 	_ = ginContext.Error(err)
 
-	ginContext.JSON(http.StatusBadRequest, gin.H{"error": invalidRequestMessage})
+	respondWithMessage(ginContext, http.StatusBadRequest, invalidRequestMessage)
 }
 
 func respondWithInternalError(ginContext *gin.Context, err error) {
 	_ = ginContext.Error(err)
 
-	respondWithStatus(ginContext, http.StatusInternalServerError)
+	respondWithMessage(ginContext, http.StatusInternalServerError, internalErrorMessage)
 }
 
-func respondWithStatus(ginContext *gin.Context, status int) {
-	ginContext.JSON(status, nil)
+func respondWithNotFound(ginContext *gin.Context) {
+	respondWithMessage(ginContext, http.StatusNotFound, notFoundMessage)
+}
+
+func respondWithMessage(ginContext *gin.Context, status int, message string) {
+	ginContext.JSON(status, gin.H{"error": message})
 }

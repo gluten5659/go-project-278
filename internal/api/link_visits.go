@@ -63,7 +63,7 @@ func (handler linkVisitsHandler) redirect(ginContext *gin.Context) {
 	)
 
 	if errors.Is(err, sql.ErrNoRows) {
-		respondWithStatus(ginContext, http.StatusNotFound)
+		respondWithNotFound(ginContext)
 
 		return
 	}

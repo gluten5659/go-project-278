@@ -86,12 +86,15 @@ would break every link already handed out.
 
 ### Errors
 
-A request that never made it to validation answers with `400 Bad Request`. That
-covers a body which is not valid JSON, an identifier which is not a number, and
-a malformed `range`.
+Every failure answers with a body. A request that never made it to validation
+answers with `400 Bad Request`, which covers a body that is not valid JSON, an
+identifier that is not a number and a malformed `range`. A missing link answers
+with `404 Not Found` and a failure on our side answers with `500`.
 
 ```json
 {"error": "invalid request"}
+{"error": "not found"}
+{"error": "internal server error"}
 ```
 
 A body that parses but breaks a rule answers with `422 Unprocessable Entity` and

@@ -99,7 +99,7 @@ func indexContractCases[Parameters any, Record any](
 			},
 			listRecords: storedRecords,
 			wantStatus:  http.StatusInternalServerError,
-			wantBody:    nullJSONBody,
+			wantBody:    internalErrorBody,
 		},
 		{
 			name:            "returns internal server error when listing fails",
@@ -108,7 +108,7 @@ func indexContractCases[Parameters any, Record any](
 			wantQueryCalled: true,
 			wantParameters:  fixture.parameters(0, 2),
 			wantStatus:      http.StatusInternalServerError,
-			wantBody:        nullJSONBody,
+			wantBody:        internalErrorBody,
 		},
 	}
 }

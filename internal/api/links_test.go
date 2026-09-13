@@ -28,8 +28,9 @@ const (
 	unparsableLinkPath = "/api/links/abc"
 	collectionPath     = "/api/links"
 	linksResource      = "links"
-	nullJSONBody       = "null"
 	invalidRequestBody = `{"error": "invalid request"}`
+	notFoundBody       = `{"error": "not found"}`
+	internalErrorBody  = `{"error": "internal server error"}`
 	allowedOrigin      = "http://localhost:5173"
 	validLinkBody      = `{"original_url": "https://example.com", "short_name": "example"}`
 	namelessBody       = `{"original_url": "https://example.com"}`
@@ -505,7 +506,7 @@ func TestCreateLink(t *testing.T) {
 			wantCalls:     1,
 			wantShortName: shortName,
 			wantStatus:    http.StatusInternalServerError,
-			wantBody:      nullJSONBody,
+			wantBody:      internalErrorBody,
 		},
 		{
 			name:       "generates a short name when the body has none",
@@ -528,7 +529,7 @@ func TestCreateLink(t *testing.T) {
 			takenNames: shortNameAttempts,
 			wantCalls:  shortNameAttempts,
 			wantStatus: http.StatusInternalServerError,
-			wantBody:   nullJSONBody,
+			wantBody:   internalErrorBody,
 		},
 		{
 			name:       "does not retry an unrelated failure",
@@ -536,7 +537,7 @@ func TestCreateLink(t *testing.T) {
 			queryError: errQueryFailed,
 			wantCalls:  1,
 			wantStatus: http.StatusInternalServerError,
-			wantBody:   nullJSONBody,
+			wantBody:   internalErrorBody,
 		},
 		{
 			name:       "does not retry a violation of another index",
@@ -544,7 +545,7 @@ func TestCreateLink(t *testing.T) {
 			queryError: uniqueViolation("links_pkey"),
 			wantCalls:  1,
 			wantStatus: http.StatusInternalServerError,
-			wantBody:   nullJSONBody,
+			wantBody:   internalErrorBody,
 		},
 	}
 
@@ -640,7 +641,7 @@ func TestShowLink(t *testing.T) {
 			wantQueryCalled: true,
 			wantLinkID:      1,
 			wantStatus:      http.StatusNotFound,
-			wantBody:        nullJSONBody,
+			wantBody:        notFoundBody,
 		},
 		{
 			name:        unparsableIDCase,
@@ -658,7 +659,7 @@ func TestShowLink(t *testing.T) {
 			wantQueryCalled: true,
 			wantLinkID:      1,
 			wantStatus:      http.StatusInternalServerError,
-			wantBody:        nullJSONBody,
+			wantBody:        internalErrorBody,
 		},
 	}
 
@@ -827,7 +828,7 @@ func TestUpdateLink(t *testing.T) {
 				ShortName:   shortName,
 			},
 			wantStatus: http.StatusNotFound,
-			wantBody:   nullJSONBody,
+			wantBody:   notFoundBody,
 		},
 		{
 			name:            "reports the taken short name as a validation failure",
@@ -855,7 +856,7 @@ func TestUpdateLink(t *testing.T) {
 				ShortName:   shortName,
 			},
 			wantStatus: http.StatusInternalServerError,
-			wantBody:   nullJSONBody,
+			wantBody:   internalErrorBody,
 		},
 	}
 
@@ -924,7 +925,7 @@ func TestDestroyLink(t *testing.T) {
 			wantQueryCalled: true,
 			wantLinkID:      1,
 			wantStatus:      http.StatusNotFound,
-			wantBody:        nullJSONBody,
+			wantBody:        notFoundBody,
 		},
 		{
 			name:       unparsableIDCase,
@@ -942,7 +943,7 @@ func TestDestroyLink(t *testing.T) {
 			wantQueryCalled: true,
 			wantLinkID:      1,
 			wantStatus:      http.StatusInternalServerError,
-			wantBody:        nullJSONBody,
+			wantBody:        internalErrorBody,
 		},
 	}
 
