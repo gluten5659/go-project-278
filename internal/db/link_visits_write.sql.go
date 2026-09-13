@@ -22,7 +22,7 @@ RETURNING id, link_id, ip, user_agent, referer, status, created_at
 
 type CreateLinkVisitParams struct {
 	LinkID    int64  `json:"link_id"`
-	Ip        string `json:"ip"`
+	IP        string `json:"ip"`
 	UserAgent string `json:"user_agent"`
 	Referer   string `json:"referer"`
 	Status    int32  `json:"status"`
@@ -31,7 +31,7 @@ type CreateLinkVisitParams struct {
 func (q *Queries) CreateLinkVisit(ctx context.Context, arg CreateLinkVisitParams) (LinkVisit, error) {
 	row := q.db.QueryRowContext(ctx, createLinkVisit,
 		arg.LinkID,
-		arg.Ip,
+		arg.IP,
 		arg.UserAgent,
 		arg.Referer,
 		arg.Status,
@@ -40,7 +40,7 @@ func (q *Queries) CreateLinkVisit(ctx context.Context, arg CreateLinkVisitParams
 	err := row.Scan(
 		&i.ID,
 		&i.LinkID,
-		&i.Ip,
+		&i.IP,
 		&i.UserAgent,
 		&i.Referer,
 		&i.Status,

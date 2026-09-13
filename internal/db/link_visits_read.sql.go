@@ -52,7 +52,7 @@ func (q *Queries) GetLinkVisits(ctx context.Context, arg GetLinkVisitsParams) ([
 		if err := rows.Scan(
 			&i.ID,
 			&i.LinkID,
-			&i.Ip,
+			&i.IP,
 			&i.UserAgent,
 			&i.Referer,
 			&i.Status,

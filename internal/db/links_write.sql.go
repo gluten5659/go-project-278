@@ -18,16 +18,16 @@ RETURNING id, original_url, short_name, created_at
 `
 
 type CreateLinkParams struct {
-	OriginalUrl string `json:"original_url"`
+	OriginalURL string `json:"original_url"`
 	ShortName   string `json:"short_name"`
 }
 
 func (q *Queries) CreateLink(ctx context.Context, arg CreateLinkParams) (Link, error) {
-	row := q.db.QueryRowContext(ctx, createLink, arg.OriginalUrl, arg.ShortName)
+	row := q.db.QueryRowContext(ctx, createLink, arg.OriginalURL, arg.ShortName)
 	var i Link
 	err := row.Scan(
 		&i.ID,
-		&i.OriginalUrl,
+		&i.OriginalURL,
 		&i.ShortName,
 		&i.CreatedAt,
 	)
@@ -58,16 +58,16 @@ RETURNING id, original_url, short_name, created_at
 
 type UpdateLinkParams struct {
 	ID          int64  `json:"id"`
-	OriginalUrl string `json:"original_url"`
+	OriginalURL string `json:"original_url"`
 	ShortName   string `json:"short_name"`
 }
 
 func (q *Queries) UpdateLink(ctx context.Context, arg UpdateLinkParams) (Link, error) {
-	row := q.db.QueryRowContext(ctx, updateLink, arg.ID, arg.OriginalUrl, arg.ShortName)
+	row := q.db.QueryRowContext(ctx, updateLink, arg.ID, arg.OriginalURL, arg.ShortName)
 	var i Link
 	err := row.Scan(
 		&i.ID,
-		&i.OriginalUrl,
+		&i.OriginalURL,
 		&i.ShortName,
 		&i.CreatedAt,
 	)

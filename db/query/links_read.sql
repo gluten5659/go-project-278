@@ -1,4 +1,4 @@
--- name: GetLinkByshortName :one
+-- name: GetLinkByShortName :one
 SELECT
     id,
     original_url,

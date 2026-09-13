@@ -33,7 +33,7 @@ func newVisit(visitID int64) db.LinkVisit {
 	return db.LinkVisit{
 		ID:        visitID,
 		LinkID:    1,
-		Ip:        remoteIP,
+		IP:        remoteIP,
 		UserAgent: visitUserAgent,
 		Referer:   visitReferer,
 		Status:    http.StatusFound,
@@ -47,7 +47,7 @@ func visitJSON(visit db.LinkVisit) string {
 			` "referer": %q, "status": %d, "created_at": %q}`,
 		visit.ID,
 		visit.LinkID,
-		visit.Ip,
+		visit.IP,
 		visit.UserAgent,
 		visit.Referer,
 		visit.Status,
@@ -58,7 +58,7 @@ func visitJSON(visit db.LinkVisit) string {
 func recordedVisit(clientIP string) db.CreateLinkVisitParams {
 	return db.CreateLinkVisitParams{
 		LinkID:    1,
-		Ip:        clientIP,
+		IP:        clientIP,
 		UserAgent: visitUserAgent,
 		Referer:   visitReferer,
 		Status:    http.StatusFound,

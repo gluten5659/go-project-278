@@ -32,7 +32,7 @@ type createLinkRequest struct {
 
 func (request createLinkRequest) createLinkParameters() db.CreateLinkParams {
 	return db.CreateLinkParams{
-		OriginalUrl: request.OriginalURL,
+		OriginalURL: request.OriginalURL,
 		ShortName:   request.ShortName,
 	}
 }
@@ -45,7 +45,7 @@ type updateLinkRequest struct {
 func (request updateLinkRequest) updateLinkParameters(linkID int64) db.UpdateLinkParams {
 	return db.UpdateLinkParams{
 		ID:          linkID,
-		OriginalUrl: request.OriginalURL,
+		OriginalURL: request.OriginalURL,
 		ShortName:   request.ShortName,
 	}
 }

@@ -57,7 +57,7 @@ func (handler linkVisitsHandler) index(ginContext *gin.Context) {
 }
 
 func (handler linkVisitsHandler) redirect(ginContext *gin.Context) {
-	link, err := handler.queries.GetLinkByshortName(
+	link, err := handler.queries.GetLinkByShortName(
 		ginContext.Request.Context(),
 		ginContext.Param("code"),
 	)
@@ -76,7 +76,7 @@ func (handler linkVisitsHandler) redirect(ginContext *gin.Context) {
 
 	handler.recordVisit(ginContext, link.ID)
 
-	ginContext.Redirect(redirectStatus, link.OriginalUrl)
+	ginContext.Redirect(redirectStatus, link.OriginalURL)
 }
 
 func (handler linkVisitsHandler) recordVisit(ginContext *gin.Context, linkID int64) {
@@ -84,7 +84,7 @@ func (handler linkVisitsHandler) recordVisit(ginContext *gin.Context, linkID int
 		ginContext.Request.Context(),
 		db.CreateLinkVisitParams{
 			LinkID:    linkID,
-			Ip:        ginContext.ClientIP(),
+			IP:        ginContext.ClientIP(),
 			UserAgent: ginContext.Request.UserAgent(),
 			Referer:   ginContext.Request.Referer(),
 			Status:    redirectStatus,

@@ -120,7 +120,7 @@ func (stub stubQuerier) DeleteLink(ctx context.Context, linkID int64) (int64, er
 	return stub.deleteLink(ctx, linkID)
 }
 
-func (stub stubQuerier) GetLinkByshortName(
+func (stub stubQuerier) GetLinkByShortName(
 	ctx context.Context,
 	shortName string,
 ) (db.Link, error) {
@@ -155,7 +155,7 @@ func (stub stubQuerier) UpdateLink(
 func newLink(linkID int64) db.Link {
 	return db.Link{
 		ID:          linkID,
-		OriginalUrl: originalURL,
+		OriginalURL: originalURL,
 		ShortName:   shortName,
 		CreatedAt:   time.Date(2026, time.August, 24, 12, 0, 0, 0, time.UTC),
 	}
@@ -165,7 +165,7 @@ func linkJSON(link db.Link) string {
 	return fmt.Sprintf(
 		`{"id": %d, "original_url": %q, "short_name": %q, "created_at": %q}`,
 		link.ID,
-		link.OriginalUrl,
+		link.OriginalURL,
 		link.ShortName,
 		link.CreatedAt.Format(time.RFC3339),
 	)
@@ -583,7 +583,7 @@ func TestCreateLink(t *testing.T) {
 			seenNames := make(map[string]bool, len(receivedParameters))
 
 			for _, parameters := range receivedParameters {
-				assert.Equal(t, originalURL, parameters.OriginalUrl)
+				assert.Equal(t, originalURL, parameters.OriginalURL)
 
 				if testCase.wantShortName == "" {
 					assert.Regexp(t, generatedNamePattern, parameters.ShortName)
@@ -723,7 +723,7 @@ func TestUpdateLink(t *testing.T) {
 			wantQueryCalled: true,
 			wantParameters: db.UpdateLinkParams{
 				ID:          1,
-				OriginalUrl: originalURL,
+				OriginalURL: originalURL,
 				ShortName:   shortName,
 			},
 			wantStatus: http.StatusOK,
@@ -737,7 +737,7 @@ func TestUpdateLink(t *testing.T) {
 			wantQueryCalled: true,
 			wantParameters: db.UpdateLinkParams{
 				ID:          4294967296,
-				OriginalUrl: originalURL,
+				OriginalURL: originalURL,
 				ShortName:   shortName,
 			},
 			wantStatus: http.StatusOK,
@@ -825,7 +825,7 @@ func TestUpdateLink(t *testing.T) {
 			wantQueryCalled: true,
 			wantParameters: db.UpdateLinkParams{
 				ID:          1,
-				OriginalUrl: originalURL,
+				OriginalURL: originalURL,
 				ShortName:   shortName,
 			},
 			wantStatus: http.StatusNotFound,
@@ -839,7 +839,7 @@ func TestUpdateLink(t *testing.T) {
 			wantQueryCalled: true,
 			wantParameters: db.UpdateLinkParams{
 				ID:          1,
-				OriginalUrl: originalURL,
+				OriginalURL: originalURL,
 				ShortName:   shortName,
 			},
 			wantStatus: http.StatusUnprocessableEntity,
@@ -853,7 +853,7 @@ func TestUpdateLink(t *testing.T) {
 			wantQueryCalled: true,
 			wantParameters: db.UpdateLinkParams{
 				ID:          1,
-				OriginalUrl: originalURL,
+				OriginalURL: originalURL,
 				ShortName:   shortName,
 			},
 			wantStatus: http.StatusInternalServerError,

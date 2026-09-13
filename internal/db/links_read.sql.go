@@ -36,14 +36,14 @@ func (q *Queries) GetLinkById(ctx context.Context, id int64) (Link, error) {
 	var i Link
 	err := row.Scan(
 		&i.ID,
-		&i.OriginalUrl,
+		&i.OriginalURL,
 		&i.ShortName,
 		&i.CreatedAt,
 	)
 	return i, err
 }
 
-const getLinkByshortName = `-- name: GetLinkByshortName :one
+const getLinkByShortName = `-- name: GetLinkByShortName :one
 SELECT
     id,
     original_url,
@@ -53,12 +53,12 @@ FROM links
 WHERE short_name = $1
 `
 
-func (q *Queries) GetLinkByshortName(ctx context.Context, shortName string) (Link, error) {
-	row := q.db.QueryRowContext(ctx, getLinkByshortName, shortName)
+func (q *Queries) GetLinkByShortName(ctx context.Context, shortName string) (Link, error) {
+	row := q.db.QueryRowContext(ctx, getLinkByShortName, shortName)
 	var i Link
 	err := row.Scan(
 		&i.ID,
-		&i.OriginalUrl,
+		&i.OriginalURL,
 		&i.ShortName,
 		&i.CreatedAt,
 	)
@@ -92,7 +92,7 @@ func (q *Queries) GetLinks(ctx context.Context, arg GetLinksParams) ([]Link, err
 		var i Link
 		if err := rows.Scan(
 			&i.ID,
-			&i.OriginalUrl,
+			&i.OriginalURL,
 			&i.ShortName,
 			&i.CreatedAt,
 		); err != nil {
