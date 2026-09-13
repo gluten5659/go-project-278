@@ -91,6 +91,7 @@ func performRedirect(
 
 	api.NewRouter(api.Config{
 		Queries:        queries,
+		Database:       stubDatabase{},
 		AllowedOrigins: []string{allowedOrigin},
 		ReportError:    recordReport,
 	}).ServeHTTP(recorder, request)

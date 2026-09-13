@@ -13,6 +13,7 @@ const corsPreflightMaxAge = 12 * time.Hour
 
 type Config struct {
 	Queries        db.Querier
+	Database       DatabasePinger
 	AllowedOrigins []string
 	ReportError    ErrorReporter
 }
@@ -39,7 +40,9 @@ func NewRouter(config Config) *gin.Engine {
 		MaxAge:           corsPreflightMaxAge,
 	}))
 
-	ginEngine.GET("/ping", pong)
+	health := healthHandler{database: config.Database}
+
+	ginEngine.GET("/ping", health.check)
 
 	links := linksHandler{queries: config.Queries, validate: newValidator()}
 	linkVisits := linkVisitsHandler{queries: config.Queries, reportError: config.ReportError}
@@ -55,8 +58,4 @@ func NewRouter(config Config) *gin.Engine {
 	ginEngine.DELETE("/api/links/:id", links.destroy)
 
 	return ginEngine
-}
-
-func pong(ginContext *gin.Context) {
-	ginContext.JSON(http.StatusOK, gin.H{"message": "pong"})
 }

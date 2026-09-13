@@ -130,6 +130,7 @@ func Run() error {
 
 	router := api.NewRouter(api.Config{
 		Queries:        db.New(conn),
+		Database:       conn,
 		AllowedOrigins: allowedOrigins(),
 		ReportError:    reportToSentry,
 	})

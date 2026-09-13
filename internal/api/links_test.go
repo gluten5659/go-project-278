@@ -166,6 +166,14 @@ func linkJSON(link db.Link) string {
 
 func discardErrorReports(*http.Request, error) {}
 
+type stubDatabase struct {
+	pingError error
+}
+
+func (stub stubDatabase) PingContext(context.Context) error {
+	return stub.pingError
+}
+
 func performRequest(
 	t *testing.T,
 	queries db.Querier,
@@ -182,6 +190,7 @@ func performRequest(
 
 	api.NewRouter(api.Config{
 		Queries:        queries,
+		Database:       stubDatabase{},
 		AllowedOrigins: []string{allowedOrigin},
 		ReportError:    discardErrorReports,
 	}).ServeHTTP(recorder, request)
@@ -238,34 +247,6 @@ func invalidFieldsBody(
 	require.NoError(t, err)
 
 	return string(body)
-}
-
-func TestPing(t *testing.T) {
-	t.Parallel()
-
-	testCases := []struct {
-		name       string
-		path       string
-		wantStatus int
-		wantBody   string
-	}{
-		{
-			name:       "responds with pong",
-			path:       "/ping",
-			wantStatus: http.StatusOK,
-			wantBody:   `{"message": "pong"}`,
-		},
-	}
-
-	for _, testCase := range testCases {
-		t.Run(testCase.name, func(t *testing.T) {
-			t.Parallel()
-
-			recorder := performRequest(t, stubQuerier{}, http.MethodGet, testCase.path, "")
-
-			assertResponse(t, recorder, testCase.wantStatus, testCase.wantBody)
-		})
-	}
 }
 
 func TestUnroutedRequests(t *testing.T) {
@@ -378,6 +359,7 @@ func TestCORS(t *testing.T) {
 
 			api.NewRouter(api.Config{
 				Queries:        queries,
+				Database:       stubDatabase{},
 				AllowedOrigins: []string{allowedOrigin},
 				ReportError:    discardErrorReports,
 			}).ServeHTTP(recorder, request)

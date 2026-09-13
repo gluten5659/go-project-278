@@ -42,7 +42,7 @@ required, and without it the process refuses to start.
 
 | Method   | Path               | Description                                    |
 |----------|--------------------|------------------------------------------------|
-| `GET`    | `/ping`            | Health check                                   |
+| `GET`    | `/ping`            | Health check, answers 503 when the database is unreachable |
 | `GET`    | `/r/:short_name`   | Redirect to the original URL, record the visit |
 | `GET`    | `/api/links`       | List links                                     |
 | `POST`   | `/api/links`       | Create a link                                  |
