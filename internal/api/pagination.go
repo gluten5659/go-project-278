@@ -12,10 +12,7 @@ const (
 	maxPageSize = 1000
 )
 
-var (
-	errMalformedRange = errors.New("range must be [first, last] with 0 <= first <= last")
-	errRangeTooLarge  = fmt.Errorf("range must ask for at most %d records", maxPageSize)
-)
+var errMalformedRange = errors.New("range must be [first, last] with 0 <= first <= last")
 
 type pageRange struct {
 	firstIndex int64
@@ -54,9 +51,7 @@ func parsePageRange(rawRange string, totalRecords int64) (pageRange, error) {
 		return pageRange{}, errMalformedRange
 	}
 
-	if parsed.pageSize() > maxPageSize {
-		return pageRange{}, errRangeTooLarge
-	}
+	parsed.lastIndex = min(parsed.lastIndex, parsed.firstIndex+maxPageSize-1)
 
 	return parsed, nil
 }

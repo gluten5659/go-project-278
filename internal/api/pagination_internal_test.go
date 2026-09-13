@@ -83,10 +83,18 @@ func TestParsePageRange(t *testing.T) {
 			wantError:    true,
 		},
 		{
-			name:         "rejects a range above the page limit",
-			rawRange:     "[0,1000]",
-			totalRecords: 42,
-			wantError:    true,
+			name:             "clamps a range above the page limit",
+			rawRange:         "[0,1000]",
+			totalRecords:     5000,
+			wantPageSize:     1000,
+			wantContentRange: "links 0-999/5000",
+		},
+		{
+			name:             "clamps a range above the page limit from an offset",
+			rawRange:         "[10,5000]",
+			totalRecords:     9000,
+			wantPageSize:     1000,
+			wantContentRange: "links 10-1009/9000",
 		},
 		{
 			name:             "accepts a range at the page limit",

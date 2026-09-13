@@ -127,8 +127,9 @@ out the real failures.
 Both list endpoints take `?range=[first,last]` and answer with a `Content-Range`
 header of the form `links 0-9/42`. Both bounds are inclusive, so `[0,9]` asks for
 ten records. That is what the admin UI reads to build its pager. Without the
-parameter the whole collection comes back, and a range asking for more than a
-thousand records is refused.
+parameter the whole collection comes back. A range asking for more than a thousand
+records is cut down to a thousand, and the header then reports what was actually
+returned rather than what was asked for.
 
 ### Deleting a link
 
