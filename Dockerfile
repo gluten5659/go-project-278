@@ -16,12 +16,14 @@ COPY go.mod go.sum ./
 RUN --mount=type=cache,target=/go/pkg/mod \
   go mod download
 
-RUN go install github.com/pressly/goose/v3/cmd/goose@latest
-
 COPY . .
 
 RUN --mount=type=cache,target=/root/.cache/go-build \
   CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /build/app .
+
+RUN --mount=type=cache,target=/root/.cache/go-build \
+  CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+  go build -o /build/goose github.com/pressly/goose/v3/cmd/goose
 
 # 3) Runtime
 FROM alpine:3.22
@@ -35,8 +37,8 @@ COPY --from=frontend-builder \
   /build/frontend/node_modules/@hexlet/project-url-shortener-frontend/dist \
   /app/public
 
-COPY --from=backend-builder build/code/db/migrations /app/db/migrations
-COPY --from=backend-builder /go/bin/goose /usr/local/bin/goose
+COPY --from=backend-builder /build/code/db/migrations /app/db/migrations
+COPY --from=backend-builder /build/goose /usr/local/bin/goose
 
 COPY bin/run.sh /app/bin/run.sh
 RUN chmod +x /app/bin/run.sh
