@@ -89,6 +89,10 @@ type stubQuerier struct {
 }
 
 func (stub stubQuerier) CountLinks(ctx context.Context) (int64, error) {
+	if stub.countLinks == nil {
+		panic("CountLinks was not expected to be called")
+	}
+
 	return stub.countLinks(ctx)
 }
 
@@ -96,6 +100,10 @@ func (stub stubQuerier) GetLinks(
 	ctx context.Context,
 	parameters db.GetLinksParams,
 ) ([]db.Link, error) {
+	if stub.getLinks == nil {
+		panic("GetLinks was not expected to be called")
+	}
+
 	return stub.getLinks(ctx, parameters)
 }
 
@@ -103,14 +111,26 @@ func (stub stubQuerier) CreateLink(
 	ctx context.Context,
 	parameters db.CreateLinkParams,
 ) (db.Link, error) {
+	if stub.createLink == nil {
+		panic("CreateLink was not expected to be called")
+	}
+
 	return stub.createLink(ctx, parameters)
 }
 
 func (stub stubQuerier) GetLinkById(ctx context.Context, linkID int64) (db.Link, error) {
+	if stub.getLinkByID == nil {
+		panic("GetLinkById was not expected to be called")
+	}
+
 	return stub.getLinkByID(ctx, linkID)
 }
 
 func (stub stubQuerier) DeleteLink(ctx context.Context, linkID int64) (int64, error) {
+	if stub.deleteLink == nil {
+		panic("DeleteLink was not expected to be called")
+	}
+
 	return stub.deleteLink(ctx, linkID)
 }
 
@@ -118,10 +138,18 @@ func (stub stubQuerier) GetLinkByShortName(
 	ctx context.Context,
 	shortName string,
 ) (db.Link, error) {
+	if stub.getLinkByShortName == nil {
+		panic("GetLinkByShortName was not expected to be called")
+	}
+
 	return stub.getLinkByShortName(ctx, shortName)
 }
 
 func (stub stubQuerier) CountLinkVisits(ctx context.Context) (int64, error) {
+	if stub.countLinkVisits == nil {
+		panic("CountLinkVisits was not expected to be called")
+	}
+
 	return stub.countLinkVisits(ctx)
 }
 
@@ -129,6 +157,10 @@ func (stub stubQuerier) GetLinkVisits(
 	ctx context.Context,
 	parameters db.GetLinkVisitsParams,
 ) ([]db.LinkVisit, error) {
+	if stub.getLinkVisits == nil {
+		panic("GetLinkVisits was not expected to be called")
+	}
+
 	return stub.getLinkVisits(ctx, parameters)
 }
 
@@ -136,6 +168,10 @@ func (stub stubQuerier) CreateLinkVisit(
 	ctx context.Context,
 	parameters db.CreateLinkVisitParams,
 ) (db.LinkVisit, error) {
+	if stub.createLinkVisit == nil {
+		panic("CreateLinkVisit was not expected to be called")
+	}
+
 	return stub.createLinkVisit(ctx, parameters)
 }
 
@@ -143,6 +179,10 @@ func (stub stubQuerier) UpdateLink(
 	ctx context.Context,
 	parameters db.UpdateLinkParams,
 ) (db.Link, error) {
+	if stub.updateLink == nil {
+		panic("UpdateLink was not expected to be called")
+	}
+
 	return stub.updateLink(ctx, parameters)
 }
 
