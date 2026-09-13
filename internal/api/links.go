@@ -194,7 +194,7 @@ func (handler linksHandler) createWithGeneratedShortName(
 		return
 	}
 
-	respondWithInternalError(ginContext, errShortNameAttemptsExhausted)
+	respondWithUnavailable(ginContext, errShortNameAttemptsExhausted)
 }
 
 func isShortNameTaken(err error) bool {

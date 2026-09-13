@@ -31,6 +31,7 @@ const (
 	invalidRequestBody = `{"error": "invalid request"}`
 	notFoundBody       = `{"error": "not found"}`
 	internalErrorBody  = `{"error": "internal server error"}`
+	unavailableBody    = `{"error": "service unavailable"}`
 	allowedOrigin      = "http://localhost:5173"
 	validLinkBody      = `{"original_url": "https://example.com", "short_name": "example"}`
 	namelessBody       = `{"original_url": "https://example.com"}`
@@ -528,8 +529,8 @@ func TestCreateLink(t *testing.T) {
 			body:       namelessBody,
 			takenNames: shortNameAttempts,
 			wantCalls:  shortNameAttempts,
-			wantStatus: http.StatusInternalServerError,
-			wantBody:   internalErrorBody,
+			wantStatus: http.StatusServiceUnavailable,
+			wantBody:   unavailableBody,
 		},
 		{
 			name:       "does not retry an unrelated failure",

@@ -14,6 +14,7 @@ const (
 	invalidRequestMessage = "invalid request"
 	notFoundMessage       = "not found"
 	internalErrorMessage  = "internal server error"
+	unavailableMessage    = "service unavailable"
 )
 
 func newValidator() *validator.Validate {
@@ -68,6 +69,12 @@ func respondWithInternalError(ginContext *gin.Context, err error) {
 	_ = ginContext.Error(err)
 
 	respondWithMessage(ginContext, http.StatusInternalServerError, internalErrorMessage)
+}
+
+func respondWithUnavailable(ginContext *gin.Context, err error) {
+	_ = ginContext.Error(err)
+
+	respondWithMessage(ginContext, http.StatusServiceUnavailable, unavailableMessage)
 }
 
 func respondWithNotFound(ginContext *gin.Context) {
