@@ -22,7 +22,7 @@ func (q *Queries) CountLinks(ctx context.Context) (int64, error) {
 }
 
 const getLinkById = `-- name: GetLinkById :one
-SELECT DISTINCT
+SELECT
     id,
     original_url,
     short_name,

@@ -22,7 +22,7 @@ SELECT count(*)
 FROM links;
 
 -- name: GetLinkById :one
-SELECT DISTINCT
+SELECT
     id,
     original_url,
     short_name,
