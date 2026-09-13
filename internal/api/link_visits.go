@@ -16,7 +16,8 @@ const (
 )
 
 type linkVisitsHandler struct {
-	queries db.Querier
+	queries     db.Querier
+	reportError ErrorReporter
 }
 
 func (handler linkVisitsHandler) index(ginContext *gin.Context) {
@@ -73,10 +74,16 @@ func (handler linkVisitsHandler) redirect(ginContext *gin.Context) {
 		return
 	}
 
-	_, err = handler.queries.CreateLinkVisit(
+	handler.recordVisit(ginContext, link.ID)
+
+	ginContext.Redirect(redirectStatus, link.OriginalUrl)
+}
+
+func (handler linkVisitsHandler) recordVisit(ginContext *gin.Context, linkID int64) {
+	_, err := handler.queries.CreateLinkVisit(
 		ginContext.Request.Context(),
 		db.CreateLinkVisitParams{
-			LinkID:    link.ID,
+			LinkID:    linkID,
 			Ip:        ginContext.ClientIP(),
 			UserAgent: ginContext.Request.UserAgent(),
 			Referer:   ginContext.Request.Referer(),
@@ -84,10 +91,6 @@ func (handler linkVisitsHandler) redirect(ginContext *gin.Context) {
 		},
 	)
 	if err != nil {
-		respondWithInternalError(ginContext, err)
-
-		return
+		handler.reportError(ginContext.Request, err)
 	}
-
-	ginContext.Redirect(redirectStatus, link.OriginalUrl)
 }

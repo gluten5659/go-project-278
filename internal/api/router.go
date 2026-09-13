@@ -40,7 +40,7 @@ func NewRouter(
 	ginEngine.GET("/ping", pong)
 
 	links := linksHandler{queries: queries, validate: newValidator()}
-	linkVisits := linkVisitsHandler{queries: queries}
+	linkVisits := linkVisitsHandler{queries: queries, reportError: reportError}
 
 	ginEngine.GET("/r/:code", linkVisits.redirect)
 

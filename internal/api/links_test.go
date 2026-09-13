@@ -66,7 +66,9 @@ func uniqueViolation(constraintName string) error {
 	return &pgconn.PgError{Code: uniqueViolationCode, ConstraintName: constraintName}
 }
 
-var errQueryFailed = errors.New("query failed")
+const queryFailedMessage = "query failed"
+
+var errQueryFailed = errors.New(queryFailedMessage)
 
 type stubQuerier struct {
 	countLinks         func(ctx context.Context) (int64, error)

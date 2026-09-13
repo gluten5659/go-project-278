@@ -76,7 +76,7 @@ func TestReportsServerErrors(t *testing.T) {
 			path:       collectionPath,
 			wantStatus: http.StatusInternalServerError,
 			wantReports: []reportedError{
-				{path: collectionPath, message: "query failed"},
+				{path: collectionPath, message: queryFailedMessage},
 			},
 		},
 		{

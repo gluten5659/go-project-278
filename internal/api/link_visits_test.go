@@ -69,10 +69,16 @@ func performRedirect(
 	t *testing.T,
 	queries db.Querier,
 	headers map[string]string,
-) *httptest.ResponseRecorder {
+) (*httptest.ResponseRecorder, []reportedError) {
 	t.Helper()
 
 	gin.SetMode(gin.TestMode)
+
+	var reports []reportedError
+
+	recordReport := func(request *http.Request, err error) {
+		reports = append(reports, reportedError{path: request.URL.Path, message: err.Error()})
+	}
 
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, redirectPath, nil)
@@ -84,9 +90,9 @@ func performRedirect(
 		request.Header.Set(name, value)
 	}
 
-	api.NewRouter(queries, []string{allowedOrigin}, discardErrorReports).ServeHTTP(recorder, request)
+	api.NewRouter(queries, []string{allowedOrigin}, recordReport).ServeHTTP(recorder, request)
 
-	return recorder
+	return recorder, reports
 }
 
 func TestRedirect(t *testing.T) {
@@ -105,6 +111,7 @@ func TestRedirect(t *testing.T) {
 		wantLocation       string
 		wantVisitRecorded  bool
 		wantVisit          db.CreateLinkVisitParams
+		wantReports        []reportedError
 	}{
 		{
 			name:               "redirects to the original url and records the visit",
@@ -136,14 +143,21 @@ func TestRedirect(t *testing.T) {
 				return db.Link{}, errQueryFailed
 			},
 			wantStatus: http.StatusInternalServerError,
+			wantReports: []reportedError{
+				{path: redirectPath, message: queryFailedMessage},
+			},
 		},
 		{
-			name:               "returns internal server error when recording the visit fails",
+			name:               "redirects even when recording the visit fails",
 			getLinkByShortName: storedLink,
 			createError:        errQueryFailed,
-			wantStatus:         http.StatusInternalServerError,
+			wantStatus:         http.StatusFound,
+			wantLocation:       originalURL,
 			wantVisitRecorded:  true,
 			wantVisit:          recordedVisit(remoteIP),
+			wantReports: []reportedError{
+				{path: redirectPath, message: queryFailedMessage},
+			},
 		},
 	}
 
@@ -176,9 +190,10 @@ func TestRedirect(t *testing.T) {
 				},
 			}
 
-			recorder := performRedirect(t, queries, testCase.headers)
+			recorder, reports := performRedirect(t, queries, testCase.headers)
 
 			require.Equal(t, testCase.wantStatus, recorder.Code)
+			assert.Equal(t, testCase.wantReports, reports)
 			assert.Equal(t, testCase.wantLocation, recorder.Header().Get("Location"))
 			assert.Equal(t, shortName, receivedShortName)
 			require.Equal(t, testCase.wantVisitRecorded, visitRecorded)
