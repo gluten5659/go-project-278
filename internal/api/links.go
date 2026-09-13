@@ -317,7 +317,7 @@ func (handler linksHandler) destroy(ginContext *gin.Context) {
 func parseLinkID(rawLinkID string) (int64, error) {
 	linkID, err := strconv.ParseInt(rawLinkID, 10, linkIDBitSize)
 	if err != nil {
-		return 0, fmt.Errorf("strconv.ParseInt: %w", err)
+		return 0, fmt.Errorf("parse link id %q: %w", rawLinkID, err)
 	}
 
 	return linkID, nil

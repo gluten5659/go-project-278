@@ -71,7 +71,7 @@ func startSentry() error {
 		DisableClientReports: true,
 	})
 	if err != nil {
-		return fmt.Errorf("sentry.Init: %w", err)
+		return fmt.Errorf("start sentry: %w", err)
 	}
 
 	return nil
@@ -98,7 +98,7 @@ func run() error {
 
 	conn, err := sql.Open("pgx", databaseDSN)
 	if err != nil {
-		return fmt.Errorf("sql.Open: %w", err)
+		return fmt.Errorf("connect to database: %w", err)
 	}
 
 	defer func() {
@@ -113,12 +113,12 @@ func run() error {
 
 	err = conn.PingContext(ctx)
 	if err != nil {
-		return fmt.Errorf("conn.PingContext: %w", err)
+		return fmt.Errorf("ping database: %w", err)
 	}
 
 	err = api.NewRouter(db.New(conn), allowedOrigins(), reportToSentry).Run(serverAddress)
 	if err != nil {
-		return fmt.Errorf("failed to run server: %w", err)
+		return fmt.Errorf("run server on %s: %w", serverAddress, err)
 	}
 
 	return nil
