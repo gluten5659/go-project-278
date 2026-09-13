@@ -7,6 +7,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+const pongMessage = "pong"
+
 type DatabasePinger interface {
 	PingContext(ctx context.Context) error
 }
@@ -23,5 +25,5 @@ func (handler healthHandler) check(ginContext *gin.Context) {
 		return
 	}
 
-	ginContext.JSON(http.StatusOK, gin.H{"message": "pong"})
+	ginContext.JSON(http.StatusOK, pongMessage)
 }

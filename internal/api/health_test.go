@@ -22,7 +22,7 @@ func TestCheckHealth(t *testing.T) {
 		{
 			name:       "answers pong when the database replies",
 			wantStatus: http.StatusOK,
-			wantBody:   `{"message": "pong"}`,
+			wantBody:   `"pong"`,
 		},
 		{
 			name:       "answers service unavailable when the database is down",
