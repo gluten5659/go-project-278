@@ -22,6 +22,11 @@ const (
 	databasePingTimeout = 5 * time.Second
 	readHeaderTimeout   = 5 * time.Second
 
+	maxOpenConnections    = 10
+	maxIdleConnections    = 5
+	connectionMaxLifetime = 30 * time.Minute
+	connectionMaxIdleTime = 5 * time.Minute
+
 	defaultAllowedOrigin = "http://localhost:5173"
 
 	serverAddress = ":8080"
@@ -102,6 +107,11 @@ func Run() error {
 	if err != nil {
 		return fmt.Errorf("connect to database: %w", err)
 	}
+
+	conn.SetMaxOpenConns(maxOpenConnections)
+	conn.SetMaxIdleConns(maxIdleConnections)
+	conn.SetConnMaxLifetime(connectionMaxLifetime)
+	conn.SetConnMaxIdleTime(connectionMaxIdleTime)
 
 	defer func() {
 		closeErr := conn.Close()
