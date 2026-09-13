@@ -40,7 +40,11 @@ func performReportedRequest(
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequestWithContext(t.Context(), method, path, strings.NewReader(body))
 
-	api.NewRouter(queries, []string{allowedOrigin}, recordReport).ServeHTTP(recorder, request)
+	api.NewRouter(api.Config{
+		Queries:        queries,
+		AllowedOrigins: []string{allowedOrigin},
+		ReportError:    recordReport,
+	}).ServeHTTP(recorder, request)
 
 	return recorder, reports
 }

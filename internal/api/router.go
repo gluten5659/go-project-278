@@ -11,19 +11,21 @@ import (
 
 const corsPreflightMaxAge = 12 * time.Hour
 
-func NewRouter(
-	queries db.Querier,
-	allowedOrigins []string,
-	reportError ErrorReporter,
-) *gin.Engine {
+type Config struct {
+	Queries        db.Querier
+	AllowedOrigins []string
+	ReportError    ErrorReporter
+}
+
+func NewRouter(config Config) *gin.Engine {
 	ginEngine := gin.Default()
 	ginEngine.TrustedPlatform = gin.PlatformCloudflare
 	_ = ginEngine.SetTrustedProxies([]string{"127.0.0.1", "::1"})
 
-	ginEngine.Use(reportServerErrors(reportError))
+	ginEngine.Use(reportServerErrors(config.ReportError))
 
 	ginEngine.Use(cors.New(cors.Config{
-		AllowOrigins: allowedOrigins,
+		AllowOrigins: config.AllowedOrigins,
 		AllowMethods: []string{
 			http.MethodGet,
 			http.MethodPost,
@@ -39,8 +41,8 @@ func NewRouter(
 
 	ginEngine.GET("/ping", pong)
 
-	links := linksHandler{queries: queries, validate: newValidator()}
-	linkVisits := linkVisitsHandler{queries: queries, reportError: reportError}
+	links := linksHandler{queries: config.Queries, validate: newValidator()}
+	linkVisits := linkVisitsHandler{queries: config.Queries, reportError: config.ReportError}
 
 	ginEngine.GET("/r/:code", linkVisits.redirect)
 

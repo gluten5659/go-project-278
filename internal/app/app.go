@@ -128,7 +128,11 @@ func Run() error {
 		return fmt.Errorf("ping database: %w", err)
 	}
 
-	router := api.NewRouter(db.New(conn), allowedOrigins(), reportToSentry)
+	router := api.NewRouter(api.Config{
+		Queries:        db.New(conn),
+		AllowedOrigins: allowedOrigins(),
+		ReportError:    reportToSentry,
+	})
 
 	return serve(router)
 }
