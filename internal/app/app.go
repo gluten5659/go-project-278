@@ -81,6 +81,7 @@ func reportToSentry(request *http.Request, err error) {
 	hub := sentry.CurrentHub().Clone()
 	hub.Scope().SetRequest(request)
 	hub.CaptureException(err)
+	hub.Flush(sentryFlushTimeout)
 }
 
 func Run() error {
