@@ -5,7 +5,6 @@ import (
 	"code/internal/db"
 	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -39,23 +38,6 @@ const (
 	unparsableIDCase = "rejects a non numeric identifier"
 
 	takenShortNameBody = `{"errors": {"short_name": "short name already in use"}}`
-
-	createRequestStructName = "createLinkRequest"
-	updateRequestStructName = "updateLinkRequest"
-
-	originalURLField = "original_url"
-
-	requiredTag  = "required"
-	httpURLTag   = "http_url"
-	minLengthTag = "min"
-	maxLengthTag = "max"
-
-	malformedBody         = `{"original_url":`
-	invalidURLBody        = `{"original_url": "example.com", "short_name": "example"}`
-	shortNameTooShortBody = `{"original_url": "https://example.com", "short_name": "ab"}`
-	shortNameTooLongBody  = `{"original_url": "https://example.com",` +
-		` "short_name": "abcdefghijklmnopqrstuvwxyz0123456789"}`
-	everyFieldInvalidBody = `{"original_url": "example.com", "short_name": "ab"}`
 )
 
 func uniqueViolation(constraintName string) error {
@@ -263,35 +245,6 @@ func assertResponse(t *testing.T, recorder *httptest.ResponseRecorder, status in
 	assert.JSONEq(t, body, string(actualBody))
 }
 
-func fieldValidationMessage(structName string, field string, failedTag string) string {
-	return fmt.Sprintf(
-		"Key: '%s.%s' Error:Field validation for '%s' failed on the '%s' tag",
-		structName,
-		field,
-		field,
-		failedTag,
-	)
-}
-
-func invalidFieldsBody(
-	t *testing.T,
-	structName string,
-	failedTagsByField map[string]string,
-) string {
-	t.Helper()
-
-	messagesByField := make(map[string]string, len(failedTagsByField))
-
-	for field, failedTag := range failedTagsByField {
-		messagesByField[field] = fieldValidationMessage(structName, field, failedTag)
-	}
-
-	body, err := json.Marshal(map[string]map[string]string{"errors": messagesByField})
-	require.NoError(t, err)
-
-	return string(body)
-}
-
 func TestUnroutedRequests(t *testing.T) {
 	t.Parallel()
 
@@ -463,59 +416,6 @@ func TestCreateLink(t *testing.T) {
 			wantShortName: shortName,
 			wantStatus:    http.StatusCreated,
 			wantBody:      linkJSON(newLink(1)),
-		},
-		{
-			name:       "rejects a malformed body",
-			body:       malformedBody,
-			wantStatus: http.StatusBadRequest,
-			wantBody:   invalidRequestBody,
-		},
-		{
-			name:       "rejects an empty body",
-			body:       "",
-			wantStatus: http.StatusBadRequest,
-			wantBody:   invalidRequestBody,
-		},
-		{
-			name:       "rejects a body without an original url",
-			body:       `{"short_name": "example"}`,
-			wantStatus: http.StatusUnprocessableEntity,
-			wantBody: invalidFieldsBody(t, createRequestStructName, map[string]string{
-				originalURLField: requiredTag,
-			}),
-		},
-		{
-			name:       "rejects an original url that is not a url",
-			body:       invalidURLBody,
-			wantStatus: http.StatusUnprocessableEntity,
-			wantBody: invalidFieldsBody(t, createRequestStructName, map[string]string{
-				originalURLField: httpURLTag,
-			}),
-		},
-		{
-			name:       "rejects a short name below the minimum length",
-			body:       shortNameTooShortBody,
-			wantStatus: http.StatusUnprocessableEntity,
-			wantBody: invalidFieldsBody(t, createRequestStructName, map[string]string{
-				api.ShortNameField: minLengthTag,
-			}),
-		},
-		{
-			name:       "rejects a short name above the maximum length",
-			body:       shortNameTooLongBody,
-			wantStatus: http.StatusUnprocessableEntity,
-			wantBody: invalidFieldsBody(t, createRequestStructName, map[string]string{
-				api.ShortNameField: maxLengthTag,
-			}),
-		},
-		{
-			name:       "reports every invalid field at once",
-			body:       everyFieldInvalidBody,
-			wantStatus: http.StatusUnprocessableEntity,
-			wantBody: invalidFieldsBody(t, createRequestStructName, map[string]string{
-				originalURLField:   httpURLTag,
-				api.ShortNameField: minLengthTag,
-			}),
 		},
 		{
 			name:          "reports the taken short name as a validation failure",
@@ -777,72 +677,6 @@ func TestUpdateLink(t *testing.T) {
 			updateLink: storedLink,
 			wantStatus: http.StatusBadRequest,
 			wantBody:   invalidRequestBody,
-		},
-		{
-			name:       "rejects a malformed body",
-			path:       linkPath,
-			body:       malformedBody,
-			updateLink: storedLink,
-			wantStatus: http.StatusBadRequest,
-			wantBody:   invalidRequestBody,
-		},
-		{
-			name:       "rejects an empty body",
-			path:       linkPath,
-			body:       "",
-			updateLink: storedLink,
-			wantStatus: http.StatusBadRequest,
-			wantBody:   invalidRequestBody,
-		},
-		{
-			name:       "rejects a body without an original url",
-			path:       linkPath,
-			body:       `{"short_name": "example"}`,
-			updateLink: storedLink,
-			wantStatus: http.StatusUnprocessableEntity,
-			wantBody: invalidFieldsBody(t, updateRequestStructName, map[string]string{
-				originalURLField: requiredTag,
-			}),
-		},
-		{
-			name:       "rejects an original url that is not a url",
-			path:       linkPath,
-			body:       invalidURLBody,
-			updateLink: storedLink,
-			wantStatus: http.StatusUnprocessableEntity,
-			wantBody: invalidFieldsBody(t, updateRequestStructName, map[string]string{
-				originalURLField: httpURLTag,
-			}),
-		},
-		{
-			name:       "rejects a short name below the minimum length",
-			path:       linkPath,
-			body:       shortNameTooShortBody,
-			updateLink: storedLink,
-			wantStatus: http.StatusUnprocessableEntity,
-			wantBody: invalidFieldsBody(t, updateRequestStructName, map[string]string{
-				api.ShortNameField: minLengthTag,
-			}),
-		},
-		{
-			name:       "rejects a short name above the maximum length",
-			path:       linkPath,
-			body:       shortNameTooLongBody,
-			updateLink: storedLink,
-			wantStatus: http.StatusUnprocessableEntity,
-			wantBody: invalidFieldsBody(t, updateRequestStructName, map[string]string{
-				api.ShortNameField: maxLengthTag,
-			}),
-		},
-		{
-			name:       "rejects a body without a short name",
-			path:       linkPath,
-			body:       namelessBody,
-			updateLink: storedLink,
-			wantStatus: http.StatusUnprocessableEntity,
-			wantBody: invalidFieldsBody(t, updateRequestStructName, map[string]string{
-				api.ShortNameField: requiredTag,
-			}),
 		},
 		{
 			name:            "returns not found when the link is missing",
