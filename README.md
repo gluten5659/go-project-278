@@ -30,11 +30,13 @@ The API listens on `http://localhost:8080` and the admin UI on
 ## Configuration
 
 Everything is read from the environment. Only the database connection is
-required, and without it the process refuses to start.
+required, and without it the process refuses to start. `DATABASE_URL` is there
+because some hosts and test harnesses pass the connection string under that name.
 
 | Variable               | Default                 | Description                                        |
 |------------------------|-------------------------|----------------------------------------------------|
 | `DATABASE_DSN`         | none, required          | PostgreSQL connection string                       |
+| `DATABASE_URL`         | none                    | Read only when `DATABASE_DSN` is unset             |
 | `BASE_URL`             | `http://localhost:8080` | Address the short links are built from             |
 | `SENTRY_DSN`           | none                    | Sentry project. Error reporting is off when unset  |
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:5173` | Comma separated origins allowed to call the API    |

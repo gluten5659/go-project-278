@@ -33,21 +33,10 @@ const (
 	serverAddress = ":8080"
 )
 
-var errMissingEnvironmentVariable = errors.New("must be set to a non-empty value")
-
 func environmentVariable(name string) (string, bool) {
 	value, isSet := os.LookupEnv(name)
 
 	return value, isSet && value != ""
-}
-
-func requireEnvironmentVariable(name string) (string, error) {
-	value, isSet := environmentVariable(name)
-	if !isSet {
-		return "", fmt.Errorf("%s %w", name, errMissingEnvironmentVariable)
-	}
-
-	return value, nil
 }
 
 func allowedOrigins() []string {
@@ -71,6 +60,24 @@ func baseURL() string {
 	}
 
 	return strings.TrimSuffix(strings.TrimSpace(rawBaseURL), "/")
+}
+
+var errMissingDatabaseDSN = errors.New(
+	"DATABASE_DSN or DATABASE_URL must be set to a non-empty value",
+)
+
+func requireDatabaseDSN() (string, error) {
+	databaseDSN, isSet := environmentVariable("DATABASE_DSN")
+	if isSet {
+		return databaseDSN, nil
+	}
+
+	databaseDSN, isSet = environmentVariable("DATABASE_URL")
+	if isSet {
+		return databaseDSN, nil
+	}
+
+	return "", errMissingDatabaseDSN
 }
 
 func startSentry() error {
@@ -107,7 +114,7 @@ func reportToSentry(request *http.Request, err error) {
 }
 
 func Run() error {
-	databaseDSN, err := requireEnvironmentVariable("DATABASE_DSN")
+	databaseDSN, err := requireDatabaseDSN()
 	if err != nil {
 		return err
 	}
