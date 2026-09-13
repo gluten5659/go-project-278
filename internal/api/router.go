@@ -15,6 +15,7 @@ type Config struct {
 	Queries        db.Querier
 	Database       DatabasePinger
 	AllowedOrigins []string
+	BaseURL        string
 	ReportError    ErrorReporter
 }
 
@@ -44,10 +45,14 @@ func NewRouter(config Config) *gin.Engine {
 
 	ginEngine.GET("/ping", health.check)
 
-	links := linksHandler{queries: config.Queries, validate: newValidator()}
+	links := linksHandler{
+		queries:  config.Queries,
+		validate: newValidator(),
+		baseURL:  config.BaseURL,
+	}
 	linkVisits := linkVisitsHandler{queries: config.Queries, reportError: config.ReportError}
 
-	ginEngine.GET("/r/:code", linkVisits.redirect)
+	ginEngine.GET(RedirectPrefix+":code", linkVisits.redirect)
 
 	ginEngine.GET("/api/link_visits", linkVisits.list)
 

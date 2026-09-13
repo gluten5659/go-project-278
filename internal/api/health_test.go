@@ -45,6 +45,7 @@ func TestCheckHealth(t *testing.T) {
 				Queries:        stubQuerier{},
 				Database:       stubDatabase{pingError: testCase.pingError},
 				AllowedOrigins: []string{allowedOrigin},
+				BaseURL:        baseURL,
 				ReportError:    discardErrorReports,
 			}).ServeHTTP(recorder, request)
 

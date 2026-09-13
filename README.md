@@ -35,6 +35,7 @@ required, and without it the process refuses to start.
 | Variable               | Default                 | Description                                        |
 |------------------------|-------------------------|----------------------------------------------------|
 | `DATABASE_DSN`         | none, required          | PostgreSQL connection string                       |
+| `BASE_URL`             | `http://localhost:8080` | Address the short links are built from             |
 | `SENTRY_DSN`           | none                    | Sentry project. Error reporting is off when unset  |
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:5173` | Comma separated origins allowed to call the API    |
 
@@ -58,7 +59,7 @@ curl -X POST http://localhost:8080/api/links \
   -H 'Content-Type: application/json' \
   -d '{"original_url": "https://hexlet.io", "short_name": "hexlet"}'
 
-{"id":1,"original_url":"https://hexlet.io","short_name":"hexlet","created_at":"2026-09-06T09:50:50.859538Z"}
+{"id":1,"original_url":"https://hexlet.io","short_name":"hexlet","short_url":"http://localhost:8080/r/hexlet","created_at":"2026-09-06T09:50:50.859538Z"}
 ```
 
 ```

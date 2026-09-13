@@ -28,6 +28,7 @@ const (
 	connectionMaxIdleTime = 5 * time.Minute
 
 	defaultAllowedOrigin = "http://localhost:5173"
+	defaultBaseURL       = "http://localhost:8080"
 
 	serverAddress = ":8080"
 )
@@ -55,6 +56,15 @@ func allowedOrigins() []string {
 	}
 
 	return origins
+}
+
+func baseURL() string {
+	rawBaseURL, isSet := os.LookupEnv("BASE_URL")
+	if !isSet || rawBaseURL == "" {
+		return defaultBaseURL
+	}
+
+	return strings.TrimSuffix(strings.TrimSpace(rawBaseURL), "/")
 }
 
 func startSentry() error {
@@ -132,6 +142,7 @@ func Run() error {
 		Queries:        db.New(conn),
 		Database:       conn,
 		AllowedOrigins: allowedOrigins(),
+		BaseURL:        baseURL(),
 		ReportError:    reportToSentry,
 	})
 

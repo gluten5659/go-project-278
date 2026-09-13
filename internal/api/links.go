@@ -9,6 +9,7 @@ import (
 	"math/big"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
@@ -50,9 +51,38 @@ func (request updateLinkRequest) updateLinkParameters(linkID int64) db.UpdateLin
 	}
 }
 
+type linkResponse struct {
+	ID          int64     `json:"id"`
+	OriginalURL string    `json:"original_url"`
+	ShortName   string    `json:"short_name"`
+	ShortURL    string    `json:"short_url"`
+	CreatedAt   time.Time `json:"created_at"`
+}
+
+func newLinkResponse(link db.Link, baseURL string) linkResponse {
+	return linkResponse{
+		ID:          link.ID,
+		OriginalURL: link.OriginalURL,
+		ShortName:   link.ShortName,
+		ShortURL:    baseURL + RedirectPrefix + link.ShortName,
+		CreatedAt:   link.CreatedAt,
+	}
+}
+
 type linksHandler struct {
 	queries  db.Querier
 	validate *validator.Validate
+	baseURL  string
+}
+
+func (handler linksHandler) newLinkResponses(links []db.Link) []linkResponse {
+	responses := make([]linkResponse, 0, len(links))
+
+	for _, link := range links {
+		responses = append(responses, newLinkResponse(link, handler.baseURL))
+	}
+
+	return responses
 }
 
 func bindRequest(ginContext *gin.Context, validate *validator.Validate, request any) bool {
@@ -101,12 +131,8 @@ func (handler linksHandler) list(ginContext *gin.Context) {
 		return
 	}
 
-	if links == nil {
-		links = []db.Link{}
-	}
-
 	ginContext.Header("Content-Range", bounds.contentRange(LinksResource, totalLinks))
-	ginContext.JSON(http.StatusOK, links)
+	ginContext.JSON(http.StatusOK, handler.newLinkResponses(links))
 }
 
 const (
@@ -160,7 +186,7 @@ func (handler linksHandler) createWithRequestedShortName(
 		return
 	}
 
-	ginContext.JSON(http.StatusCreated, link)
+	ginContext.JSON(http.StatusCreated, newLinkResponse(link, handler.baseURL))
 }
 
 func (handler linksHandler) createWithGeneratedShortName(
@@ -192,7 +218,7 @@ func (handler linksHandler) createWithGeneratedShortName(
 			return
 		}
 
-		ginContext.JSON(http.StatusCreated, link)
+		ginContext.JSON(http.StatusCreated, newLinkResponse(link, handler.baseURL))
 
 		return
 	}
@@ -246,7 +272,7 @@ func (handler linksHandler) show(ginContext *gin.Context) {
 		return
 	}
 
-	ginContext.JSON(http.StatusOK, link)
+	ginContext.JSON(http.StatusOK, newLinkResponse(link, handler.baseURL))
 }
 
 func (handler linksHandler) update(ginContext *gin.Context) {
@@ -287,7 +313,7 @@ func (handler linksHandler) update(ginContext *gin.Context) {
 		return
 	}
 
-	ginContext.JSON(http.StatusOK, link)
+	ginContext.JSON(http.StatusOK, newLinkResponse(link, handler.baseURL))
 }
 
 func (handler linksHandler) destroy(ginContext *gin.Context) {

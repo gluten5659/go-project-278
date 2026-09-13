@@ -13,6 +13,8 @@ const (
 	LinkVisitsResource = "link_visits"
 
 	redirectStatus = http.StatusFound
+
+	RedirectPrefix = "/r/"
 )
 
 type linkVisitsHandler struct {

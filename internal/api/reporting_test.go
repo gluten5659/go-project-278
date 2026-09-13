@@ -44,6 +44,7 @@ func performReportedRequest(
 		Queries:        queries,
 		Database:       stubDatabase{},
 		AllowedOrigins: []string{allowedOrigin},
+		BaseURL:        baseURL,
 		ReportError:    recordReport,
 	}).ServeHTTP(recorder, request)
 

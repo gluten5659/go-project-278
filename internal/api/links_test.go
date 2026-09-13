@@ -32,6 +32,7 @@ const (
 	internalErrorBody  = `{"error": "internal server error"}`
 	unavailableBody    = `{"error": "service unavailable"}`
 	allowedOrigin      = "http://localhost:5173"
+	baseURL            = "https://short.example"
 	validLinkBody      = `{"original_url": "https://example.com", "short_name": "example"}`
 	namelessBody       = `{"original_url": "https://example.com"}`
 
@@ -156,10 +157,11 @@ func newLink(linkID int64) db.Link {
 
 func linkJSON(link db.Link) string {
 	return fmt.Sprintf(
-		`{"id": %d, "original_url": %q, "short_name": %q, "created_at": %q}`,
+		`{"id": %d, "original_url": %q, "short_name": %q, "short_url": %q, "created_at": %q}`,
 		link.ID,
 		link.OriginalURL,
 		link.ShortName,
+		baseURL+api.RedirectPrefix+link.ShortName,
 		link.CreatedAt.Format(time.RFC3339),
 	)
 }
@@ -192,6 +194,7 @@ func performRequest(
 		Queries:        queries,
 		Database:       stubDatabase{},
 		AllowedOrigins: []string{allowedOrigin},
+		BaseURL:        baseURL,
 		ReportError:    discardErrorReports,
 	}).ServeHTTP(recorder, request)
 
@@ -361,6 +364,7 @@ func TestCORS(t *testing.T) {
 				Queries:        queries,
 				Database:       stubDatabase{},
 				AllowedOrigins: []string{allowedOrigin},
+				BaseURL:        baseURL,
 				ReportError:    discardErrorReports,
 			}).ServeHTTP(recorder, request)
 
