@@ -27,6 +27,7 @@ const (
 	linkPath           = "/api/links/1"
 	unparsableLinkPath = "/api/links/abc"
 	collectionPath     = "/api/links"
+	linksResource      = "links"
 	nullJSONBody       = "null"
 	invalidRequestBody = `{"error": "invalid request"}`
 	allowedOrigin      = "http://localhost:5173"
@@ -391,131 +392,20 @@ func TestCORS(t *testing.T) {
 func TestIndexLinks(t *testing.T) {
 	t.Parallel()
 
-	storedLinks := func(context.Context, db.GetLinksParams) ([]db.Link, error) {
-		return []db.Link{newLink(1), newLink(2)}, nil
-	}
-
-	storedLinksJSON := "[" + linkJSON(newLink(1)) + "," + linkJSON(newLink(2)) + "]"
-
-	testCases := []indexCase[db.GetLinksParams, db.Link]{
-		{
-			name:            "returns stored links",
-			countRecords:    countedRecords(2),
-			listRecords:     storedLinks,
-			wantQueryCalled: true,
-			wantParameters: db.GetLinksParams{
-				PageOffset: 0,
-				PageSize:   2,
-			},
-			wantContentRange: "links 0-2/2",
-			wantStatus:       http.StatusOK,
-			wantBody:         storedLinksJSON,
+	runIndexContract(t, indexFixture[db.GetLinksParams, db.Link]{
+		resource:    linksResource,
+		path:        collectionPath,
+		records:     []db.Link{newLink(1), newLink(2)},
+		recordsJSON: "[" + linkJSON(newLink(1)) + "," + linkJSON(newLink(2)) + "]",
+		parameters: func(pageOffset int64, pageSize int64) db.GetLinksParams {
+			return db.GetLinksParams{PageOffset: pageOffset, PageSize: pageSize}
 		},
-		{
-			name:         "returns an empty array when nothing is stored",
-			countRecords: countedRecords(0),
-			listRecords: func(context.Context, db.GetLinksParams) ([]db.Link, error) {
-				return nil, nil
-			},
-			wantQueryCalled: true,
-			wantParameters: db.GetLinksParams{
-				PageOffset: 0,
-				PageSize:   0,
-			},
-			wantContentRange: "links 0-0/0",
-			wantStatus:       http.StatusOK,
-			wantBody:         "[]",
+		newQueries: func(
+			countRecords func(ctx context.Context) (int64, error),
+			listRecords func(ctx context.Context, parameters db.GetLinksParams) ([]db.Link, error),
+		) stubQuerier {
+			return stubQuerier{countLinks: countRecords, getLinks: listRecords}
 		},
-		{
-			name:            "takes the first page of a range",
-			query:           "?range=[0,10]",
-			countRecords:    countedRecords(11),
-			listRecords:     storedLinks,
-			wantQueryCalled: true,
-			wantParameters: db.GetLinksParams{
-				PageOffset: 0,
-				PageSize:   10,
-			},
-			wantContentRange: "links 0-10/11",
-			wantStatus:       http.StatusOK,
-			wantBody:         storedLinksJSON,
-		},
-		{
-			name:            "skips the offset of a range",
-			query:           "?range=[5,%2010]",
-			countRecords:    countedRecords(11),
-			listRecords:     storedLinks,
-			wantQueryCalled: true,
-			wantParameters: db.GetLinksParams{
-				PageOffset: 5,
-				PageSize:   5,
-			},
-			wantContentRange: "links 5-10/11",
-			wantStatus:       http.StatusOK,
-			wantBody:         storedLinksJSON,
-		},
-		{
-			name:         "rejects a malformed range",
-			query:        "?range=[0",
-			countRecords: countedRecords(11),
-			listRecords:  storedLinks,
-			wantStatus:   http.StatusBadRequest,
-			wantBody:     invalidRequestBody,
-		},
-		{
-			name:         "rejects a range without two bounds",
-			query:        "?range=[1,2,3]",
-			countRecords: countedRecords(11),
-			listRecords:  storedLinks,
-			wantStatus:   http.StatusBadRequest,
-			wantBody:     invalidRequestBody,
-		},
-		{
-			name:         "rejects a negative range",
-			query:        "?range=[-1,10]",
-			countRecords: countedRecords(11),
-			listRecords:  storedLinks,
-			wantStatus:   http.StatusBadRequest,
-			wantBody:     invalidRequestBody,
-		},
-		{
-			name:         "rejects a reversed range",
-			query:        "?range=[10,5]",
-			countRecords: countedRecords(11),
-			listRecords:  storedLinks,
-			wantStatus:   http.StatusBadRequest,
-			wantBody:     invalidRequestBody,
-		},
-		{
-			name: "returns internal server error when counting fails",
-			countRecords: func(context.Context) (int64, error) {
-				return 0, errQueryFailed
-			},
-			listRecords: storedLinks,
-			wantStatus:  http.StatusInternalServerError,
-			wantBody:    nullJSONBody,
-		},
-		{
-			name:         "returns internal server error when listing fails",
-			countRecords: countedRecords(2),
-			listRecords: func(context.Context, db.GetLinksParams) ([]db.Link, error) {
-				return nil, errQueryFailed
-			},
-			wantQueryCalled: true,
-			wantParameters: db.GetLinksParams{
-				PageOffset: 0,
-				PageSize:   2,
-			},
-			wantStatus: http.StatusInternalServerError,
-			wantBody:   nullJSONBody,
-		},
-	}
-
-	runIndexCases(t, collectionPath, testCases, func(
-		countRecords func(ctx context.Context) (int64, error),
-		listRecords func(ctx context.Context, parameters db.GetLinksParams) ([]db.Link, error),
-	) stubQuerier {
-		return stubQuerier{countLinks: countRecords, getLinks: listRecords}
 	})
 }
 

@@ -17,8 +17,9 @@ import (
 )
 
 const (
-	visitsPath   = "/api/link_visits"
-	redirectPath = "/r/example"
+	visitsPath         = "/api/link_visits"
+	linkVisitsResource = "link_visits"
+	redirectPath       = "/r/example"
 
 	visitUserAgent = "curl/8.5.0"
 	visitReferer   = "https://news.example/post"
@@ -192,95 +193,22 @@ func TestRedirect(t *testing.T) {
 func TestIndexLinkVisits(t *testing.T) {
 	t.Parallel()
 
-	storedVisits := func(context.Context, db.GetLinkVisitsParams) ([]db.LinkVisit, error) {
-		return []db.LinkVisit{newVisit(1), newVisit(2)}, nil
-	}
-
-	storedVisitsJSON := "[" + visitJSON(newVisit(1)) + "," + visitJSON(newVisit(2)) + "]"
-
-	testCases := []indexCase[db.GetLinkVisitsParams, db.LinkVisit]{
-		{
-			name:            "returns stored visits",
-			countRecords:    countedRecords(2),
-			listRecords:     storedVisits,
-			wantQueryCalled: true,
-			wantParameters: db.GetLinkVisitsParams{
-				PageOffset: 0,
-				PageSize:   2,
-			},
-			wantContentRange: "link_visits 0-2/2",
-			wantStatus:       http.StatusOK,
-			wantBody:         storedVisitsJSON,
+	runIndexContract(t, indexFixture[db.GetLinkVisitsParams, db.LinkVisit]{
+		resource:    linkVisitsResource,
+		path:        visitsPath,
+		records:     []db.LinkVisit{newVisit(1), newVisit(2)},
+		recordsJSON: "[" + visitJSON(newVisit(1)) + "," + visitJSON(newVisit(2)) + "]",
+		parameters: func(pageOffset int64, pageSize int64) db.GetLinkVisitsParams {
+			return db.GetLinkVisitsParams{PageOffset: pageOffset, PageSize: pageSize}
 		},
-		{
-			name:         "returns an empty array when nothing is stored",
-			countRecords: countedRecords(0),
-			listRecords: func(context.Context, db.GetLinkVisitsParams) ([]db.LinkVisit, error) {
-				return nil, nil
-			},
-			wantQueryCalled: true,
-			wantParameters: db.GetLinkVisitsParams{
-				PageOffset: 0,
-				PageSize:   0,
-			},
-			wantContentRange: "link_visits 0-0/0",
-			wantStatus:       http.StatusOK,
-			wantBody:         "[]",
+		newQueries: func(
+			countRecords func(ctx context.Context) (int64, error),
+			listRecords func(
+				ctx context.Context,
+				parameters db.GetLinkVisitsParams,
+			) ([]db.LinkVisit, error),
+		) stubQuerier {
+			return stubQuerier{countLinkVisits: countRecords, getLinkVisits: listRecords}
 		},
-		{
-			name:            "skips the offset of a range",
-			query:           "?range=[10,%2020]",
-			countRecords:    countedRecords(357),
-			listRecords:     storedVisits,
-			wantQueryCalled: true,
-			wantParameters: db.GetLinkVisitsParams{
-				PageOffset: 10,
-				PageSize:   10,
-			},
-			wantContentRange: "link_visits 10-20/357",
-			wantStatus:       http.StatusOK,
-			wantBody:         storedVisitsJSON,
-		},
-		{
-			name:         "rejects a malformed range",
-			query:        "?range=[10,5]",
-			countRecords: countedRecords(357),
-			listRecords:  storedVisits,
-			wantStatus:   http.StatusBadRequest,
-			wantBody:     invalidRequestBody,
-		},
-		{
-			name: "returns internal server error when counting fails",
-			countRecords: func(context.Context) (int64, error) {
-				return 0, errQueryFailed
-			},
-			listRecords: storedVisits,
-			wantStatus:  http.StatusInternalServerError,
-			wantBody:    nullJSONBody,
-		},
-		{
-			name:         "returns internal server error when listing fails",
-			countRecords: countedRecords(2),
-			listRecords: func(context.Context, db.GetLinkVisitsParams) ([]db.LinkVisit, error) {
-				return nil, errQueryFailed
-			},
-			wantQueryCalled: true,
-			wantParameters: db.GetLinkVisitsParams{
-				PageOffset: 0,
-				PageSize:   2,
-			},
-			wantStatus: http.StatusInternalServerError,
-			wantBody:   nullJSONBody,
-		},
-	}
-
-	runIndexCases(t, visitsPath, testCases, func(
-		countRecords func(ctx context.Context) (int64, error),
-		listRecords func(
-			ctx context.Context,
-			parameters db.GetLinkVisitsParams,
-		) ([]db.LinkVisit, error),
-	) stubQuerier {
-		return stubQuerier{countLinkVisits: countRecords, getLinkVisits: listRecords}
 	})
 }

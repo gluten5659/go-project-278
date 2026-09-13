@@ -6,9 +6,16 @@ import (
 	"fmt"
 )
 
-const rangeBoundsCount = 2
+const (
+	rangeBoundsCount = 2
 
-var errMalformedRange = errors.New("range must be [first, last] with 0 <= first <= last")
+	maxPageSize = 1000
+)
+
+var (
+	errMalformedRange = errors.New("range must be [first, last] with 0 <= first <= last")
+	errRangeTooLarge  = fmt.Errorf("range must ask for at most %d records", maxPageSize)
+)
 
 type pageRange struct {
 	firstIndex int64
@@ -16,23 +23,25 @@ type pageRange struct {
 }
 
 func (bounds pageRange) contentRange(resource string, totalRecords int64) string {
-	return fmt.Sprintf("%s %d-%d/%d", resource, bounds.firstIndex, bounds.lastIndex, totalRecords)
+	lastIndex := max(bounds.firstIndex, min(bounds.lastIndex, totalRecords-1))
+
+	return fmt.Sprintf("%s %d-%d/%d", resource, bounds.firstIndex, lastIndex, totalRecords)
 }
 
 func (bounds pageRange) pageSize() int64 {
-	return bounds.lastIndex - bounds.firstIndex
+	return bounds.lastIndex - bounds.firstIndex + 1
 }
 
 func parsePageRange(rawRange string, totalRecords int64) (pageRange, error) {
 	if rawRange == "" {
-		return pageRange{firstIndex: 0, lastIndex: totalRecords}, nil
+		return pageRange{firstIndex: 0, lastIndex: totalRecords - 1}, nil
 	}
 
 	var bounds []int64
 
 	err := json.Unmarshal([]byte(rawRange), &bounds)
 	if err != nil {
-		return pageRange{}, fmt.Errorf("json.Unmarshal: %w", err)
+		return pageRange{}, fmt.Errorf("parse range %q: %w", rawRange, err)
 	}
 
 	if len(bounds) != rangeBoundsCount {
@@ -43,6 +52,10 @@ func parsePageRange(rawRange string, totalRecords int64) (pageRange, error) {
 
 	if parsed.firstIndex < 0 || parsed.lastIndex < parsed.firstIndex {
 		return pageRange{}, errMalformedRange
+	}
+
+	if parsed.pageSize() > maxPageSize {
+		return pageRange{}, errRangeTooLarge
 	}
 
 	return parsed, nil
