@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	linkVisitsResource = "link_visits"
+	LinkVisitsResource = "link_visits"
 
 	redirectStatus = http.StatusFound
 )
@@ -52,7 +52,7 @@ func (handler linkVisitsHandler) list(ginContext *gin.Context) {
 		visits = []db.LinkVisit{}
 	}
 
-	ginContext.Header("Content-Range", bounds.contentRange(linkVisitsResource, totalVisits))
+	ginContext.Header("Content-Range", bounds.contentRange(LinkVisitsResource, totalVisits))
 	ginContext.JSON(http.StatusOK, visits)
 }
 

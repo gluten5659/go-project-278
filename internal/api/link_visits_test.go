@@ -17,9 +17,8 @@ import (
 )
 
 const (
-	visitsPath         = "/api/link_visits"
-	linkVisitsResource = "link_visits"
-	redirectPath       = "/r/example"
+	visitsPath   = "/api/link_visits"
+	redirectPath = "/r/example"
 
 	visitUserAgent = "curl/8.5.0"
 	visitReferer   = "https://news.example/post"
@@ -209,7 +208,7 @@ func TestListLinkVisits(t *testing.T) {
 	t.Parallel()
 
 	runListContract(t, listFixture[db.GetLinkVisitsParams, db.LinkVisit]{
-		resource:    linkVisitsResource,
+		resource:    api.LinkVisitsResource,
 		path:        visitsPath,
 		records:     []db.LinkVisit{newVisit(1), newVisit(2)},
 		recordsJSON: "[" + visitJSON(newVisit(1)) + "," + visitJSON(newVisit(2)) + "]",

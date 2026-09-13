@@ -114,7 +114,7 @@ func TestParsePageRange(t *testing.T) {
 			assert.Equal(
 				t,
 				testCase.wantContentRange,
-				bounds.contentRange(linksResource, testCase.totalRecords),
+				bounds.contentRange(LinksResource, testCase.totalRecords),
 			)
 		})
 	}

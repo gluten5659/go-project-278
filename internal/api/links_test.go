@@ -27,7 +27,6 @@ const (
 	linkPath           = "/api/links/1"
 	unparsableLinkPath = "/api/links/abc"
 	collectionPath     = "/api/links"
-	linksResource      = "links"
 	invalidRequestBody = `{"error": "invalid request"}`
 	notFoundBody       = `{"error": "not found"}`
 	internalErrorBody  = `{"error": "internal server error"}`
@@ -44,7 +43,6 @@ const (
 	updateRequestStructName = "updateLinkRequest"
 
 	originalURLField = "original_url"
-	shortNameField   = "short_name"
 
 	requiredTag  = "required"
 	httpURLTag   = "http_url"
@@ -57,15 +55,10 @@ const (
 	shortNameTooLongBody  = `{"original_url": "https://example.com",` +
 		` "short_name": "abcdefghijklmnopqrstuvwxyz0123456789"}`
 	everyFieldInvalidBody = `{"original_url": "example.com", "short_name": "ab"}`
-
-	shortNameIndex       = "idx_short_name"
-	uniqueViolationCode  = "23505"
-	generatedNamePattern = `^[a-zA-Z]{8}$`
-	shortNameAttempts    = 3
 )
 
 func uniqueViolation(constraintName string) error {
-	return &pgconn.PgError{Code: uniqueViolationCode, ConstraintName: constraintName}
+	return &pgconn.PgError{Code: api.UniqueViolationCode, ConstraintName: constraintName}
 }
 
 const queryFailedMessage = "query failed"
@@ -401,7 +394,7 @@ func TestListLinks(t *testing.T) {
 	t.Parallel()
 
 	runListContract(t, listFixture[db.GetLinksParams, db.Link]{
-		resource:    linksResource,
+		resource:    api.LinksResource,
 		path:        collectionPath,
 		records:     []db.Link{newLink(1), newLink(2)},
 		recordsJSON: "[" + linkJSON(newLink(1)) + "," + linkJSON(newLink(2)) + "]",
@@ -471,7 +464,7 @@ func TestCreateLink(t *testing.T) {
 			body:       shortNameTooShortBody,
 			wantStatus: http.StatusUnprocessableEntity,
 			wantBody: invalidFieldsBody(t, createRequestStructName, map[string]string{
-				shortNameField: minLengthTag,
+				api.ShortNameField: minLengthTag,
 			}),
 		},
 		{
@@ -479,7 +472,7 @@ func TestCreateLink(t *testing.T) {
 			body:       shortNameTooLongBody,
 			wantStatus: http.StatusUnprocessableEntity,
 			wantBody: invalidFieldsBody(t, createRequestStructName, map[string]string{
-				shortNameField: maxLengthTag,
+				api.ShortNameField: maxLengthTag,
 			}),
 		},
 		{
@@ -487,8 +480,8 @@ func TestCreateLink(t *testing.T) {
 			body:       everyFieldInvalidBody,
 			wantStatus: http.StatusUnprocessableEntity,
 			wantBody: invalidFieldsBody(t, createRequestStructName, map[string]string{
-				originalURLField: httpURLTag,
-				shortNameField:   minLengthTag,
+				originalURLField:   httpURLTag,
+				api.ShortNameField: minLengthTag,
 			}),
 		},
 		{
@@ -527,8 +520,8 @@ func TestCreateLink(t *testing.T) {
 		{
 			name:       "gives up once the attempts run out",
 			body:       namelessBody,
-			takenNames: shortNameAttempts,
-			wantCalls:  shortNameAttempts,
+			takenNames: api.ShortNameAttempts,
+			wantCalls:  api.ShortNameAttempts,
 			wantStatus: http.StatusServiceUnavailable,
 			wantBody:   unavailableBody,
 		},
@@ -568,7 +561,7 @@ func TestCreateLink(t *testing.T) {
 					}
 
 					if len(receivedParameters) <= testCase.takenNames {
-						return db.Link{}, uniqueViolation(shortNameIndex)
+						return db.Link{}, uniqueViolation(api.ShortNameIndex)
 					}
 
 					return newLink(1), nil
@@ -580,6 +573,7 @@ func TestCreateLink(t *testing.T) {
 			assertResponse(t, recorder, testCase.wantStatus, testCase.wantBody)
 			require.Len(t, receivedParameters, testCase.wantCalls)
 
+			generatedNamePattern := fmt.Sprintf(`^[a-zA-Z]{%d}$`, api.ShortNameLength)
 			seenNames := make(map[string]bool, len(receivedParameters))
 
 			for _, parameters := range receivedParameters {
@@ -794,7 +788,7 @@ func TestUpdateLink(t *testing.T) {
 			updateLink: storedLink,
 			wantStatus: http.StatusUnprocessableEntity,
 			wantBody: invalidFieldsBody(t, updateRequestStructName, map[string]string{
-				shortNameField: minLengthTag,
+				api.ShortNameField: minLengthTag,
 			}),
 		},
 		{
@@ -804,7 +798,7 @@ func TestUpdateLink(t *testing.T) {
 			updateLink: storedLink,
 			wantStatus: http.StatusUnprocessableEntity,
 			wantBody: invalidFieldsBody(t, updateRequestStructName, map[string]string{
-				shortNameField: maxLengthTag,
+				api.ShortNameField: maxLengthTag,
 			}),
 		},
 		{
@@ -814,7 +808,7 @@ func TestUpdateLink(t *testing.T) {
 			updateLink: storedLink,
 			wantStatus: http.StatusUnprocessableEntity,
 			wantBody: invalidFieldsBody(t, updateRequestStructName, map[string]string{
-				shortNameField: requiredTag,
+				api.ShortNameField: requiredTag,
 			}),
 		},
 		{
@@ -835,7 +829,7 @@ func TestUpdateLink(t *testing.T) {
 			name:            "reports the taken short name as a validation failure",
 			path:            linkPath,
 			body:            validLinkBody,
-			updateLink:      failedWith(uniqueViolation(shortNameIndex)),
+			updateLink:      failedWith(uniqueViolation(api.ShortNameIndex)),
 			wantQueryCalled: true,
 			wantParameters: db.UpdateLinkParams{
 				ID:          1,

@@ -16,13 +16,13 @@ import (
 )
 
 const (
-	linksResource = "links"
+	LinksResource = "links"
 
 	linkIDBitSize = 64
 
-	shortNameField = "short_name"
+	ShortNameField = "short_name"
 
-	shortNameTakenMessage = "short name already in use"
+	ShortNameTakenMessage = "short name already in use"
 )
 
 type createLinkRequest struct {
@@ -105,19 +105,19 @@ func (handler linksHandler) list(ginContext *gin.Context) {
 		links = []db.Link{}
 	}
 
-	ginContext.Header("Content-Range", bounds.contentRange(linksResource, totalLinks))
+	ginContext.Header("Content-Range", bounds.contentRange(LinksResource, totalLinks))
 	ginContext.JSON(http.StatusOK, links)
 }
 
 const (
-	shortNameLength = 8
+	ShortNameLength = 8
 
 	shortNameAlphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
-	shortNameAttempts = 3
+	ShortNameAttempts = 3
 
-	uniqueViolationCode = "23505"
-	shortNameIndexName  = "idx_short_name"
+	UniqueViolationCode = "23505"
+	ShortNameIndex      = "idx_short_name"
 )
 
 var errShortNameAttemptsExhausted = errors.New("ran out of short name attempts")
@@ -149,7 +149,7 @@ func (handler linksHandler) createWithRequestedShortName(
 	)
 
 	if isShortNameTaken(err) {
-		respondWithFieldError(ginContext, err, shortNameField, shortNameTakenMessage)
+		respondWithFieldError(ginContext, err, ShortNameField, ShortNameTakenMessage)
 
 		return
 	}
@@ -167,7 +167,7 @@ func (handler linksHandler) createWithGeneratedShortName(
 	ginContext *gin.Context,
 	request createLinkRequest,
 ) {
-	for range shortNameAttempts {
+	for range ShortNameAttempts {
 		generatedShortName, err := generateShortName()
 		if err != nil {
 			respondWithInternalError(ginContext, err)
@@ -201,7 +201,7 @@ func (handler linksHandler) createWithGeneratedShortName(
 }
 
 func generateShortName() (string, error) {
-	name := make([]byte, shortNameLength)
+	name := make([]byte, ShortNameLength)
 	alphabetSize := big.NewInt(int64(len(shortNameAlphabet)))
 
 	for index := range name {
@@ -220,8 +220,8 @@ func isShortNameTaken(err error) bool {
 	var pgError *pgconn.PgError
 
 	return errors.As(err, &pgError) &&
-		pgError.Code == uniqueViolationCode &&
-		pgError.ConstraintName == shortNameIndexName
+		pgError.Code == UniqueViolationCode &&
+		pgError.ConstraintName == ShortNameIndex
 }
 
 func (handler linksHandler) show(ginContext *gin.Context) {
@@ -276,7 +276,7 @@ func (handler linksHandler) update(ginContext *gin.Context) {
 	}
 
 	if isShortNameTaken(err) {
-		respondWithFieldError(ginContext, err, shortNameField, shortNameTakenMessage)
+		respondWithFieldError(ginContext, err, ShortNameField, ShortNameTakenMessage)
 
 		return
 	}
