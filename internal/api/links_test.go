@@ -45,7 +45,7 @@ const (
 	shortNameField   = "short_name"
 
 	requiredTag  = "required"
-	urlTag       = "url"
+	httpURLTag   = "http_url"
 	minLengthTag = "min"
 	maxLengthTag = "max"
 
@@ -461,7 +461,7 @@ func TestCreateLink(t *testing.T) {
 			body:       invalidURLBody,
 			wantStatus: http.StatusUnprocessableEntity,
 			wantBody: invalidFieldsBody(t, createRequestStructName, map[string]string{
-				originalURLField: urlTag,
+				originalURLField: httpURLTag,
 			}),
 		},
 		{
@@ -485,7 +485,7 @@ func TestCreateLink(t *testing.T) {
 			body:       everyFieldInvalidBody,
 			wantStatus: http.StatusUnprocessableEntity,
 			wantBody: invalidFieldsBody(t, createRequestStructName, map[string]string{
-				originalURLField: urlTag,
+				originalURLField: httpURLTag,
 				shortNameField:   minLengthTag,
 			}),
 		},
@@ -782,7 +782,7 @@ func TestUpdateLink(t *testing.T) {
 			updateLink: storedLink,
 			wantStatus: http.StatusUnprocessableEntity,
 			wantBody: invalidFieldsBody(t, updateRequestStructName, map[string]string{
-				originalURLField: urlTag,
+				originalURLField: httpURLTag,
 			}),
 		},
 		{

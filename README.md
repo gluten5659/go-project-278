@@ -98,7 +98,7 @@ A body that parses but breaks a rule answers with `422 Unprocessable Entity` and
 carries one message per field.
 
 ```json
-{"errors": {"original_url": "Key: 'linkRequest.original_url' Error:Field validation for 'original_url' failed on the 'url' tag"}}
+{"errors": {"original_url": "Key: 'createLinkRequest.original_url' Error:Field validation for 'original_url' failed on the 'http_url' tag"}}
 ```
 
 Uniqueness is the one rule the validator cannot check on its own, so the database
