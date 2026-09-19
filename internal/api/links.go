@@ -28,7 +28,7 @@ const (
 
 type createLinkRequest struct {
 	OriginalURL string `json:"original_url" validate:"required,http_url"`
-	ShortName   string `json:"short_name"   validate:"omitempty,min=3,max=32"`
+	ShortName   string `json:"short_name"   validate:"omitempty,min=3,max=32,path_segment"`
 }
 
 func (request createLinkRequest) createLinkParameters() db.CreateLinkParams {
@@ -40,7 +40,7 @@ func (request createLinkRequest) createLinkParameters() db.CreateLinkParams {
 
 type updateLinkRequest struct {
 	OriginalURL string `json:"original_url" validate:"required,http_url"`
-	ShortName   string `json:"short_name"   validate:"required,min=3,max=32"`
+	ShortName   string `json:"short_name"   validate:"required,min=3,max=32,path_segment"`
 }
 
 func (request updateLinkRequest) updateLinkParameters(linkID int64) db.UpdateLinkParams {

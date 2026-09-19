@@ -3,8 +3,6 @@ package api
 import (
 	"errors"
 	"net/http"
-	"reflect"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
@@ -16,22 +14,6 @@ const (
 	internalErrorMessage  = "internal server error"
 	unavailableMessage    = "service unavailable"
 )
-
-func newValidator() *validator.Validate {
-	validate := validator.New()
-
-	validate.RegisterTagNameFunc(func(field reflect.StructField) string {
-		jsonName, _, _ := strings.Cut(field.Tag.Get("json"), ",")
-
-		if jsonName == "-" {
-			return ""
-		}
-
-		return jsonName
-	})
-
-	return validate
-}
 
 func respondWithValidationError(ginContext *gin.Context, err error) {
 	var validationErrors validator.ValidationErrors

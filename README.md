@@ -78,8 +78,12 @@ surprising.
 
 ### Short names
 
-`original_url` is required and has to be a URL. `short_name` is optional, three
-to thirty two characters, and unique across all links.
+`original_url` is required and has to be an http or https URL. `short_name` is
+optional, three to thirty two characters, and unique across all links. It may
+only hold latin letters, digits, dashes and underscores, because it has to fit
+into a single segment of the short URL. A slash, a question mark, a hash, a
+percent sign, a dot or a space would turn `/r/<short_name>` into an address that
+does not reach the redirect.
 
 When the field is left out on create, the server generates a name of eight
 letters. A generated name can collide with one that already exists, so the

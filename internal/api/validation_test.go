@@ -16,10 +16,11 @@ const (
 
 	originalURLField = "original_url"
 
-	requiredTag  = "required"
-	httpURLTag   = "http_url"
-	minLengthTag = "min"
-	maxLengthTag = "max"
+	requiredTag    = "required"
+	httpURLTag     = "http_url"
+	minLengthTag   = "min"
+	maxLengthTag   = "max"
+	pathSegmentTag = "path_segment"
 
 	malformedBody         = `{"original_url":`
 	invalidURLBody        = `{"original_url": "example.com", "short_name": "example"}`
@@ -56,6 +57,81 @@ func invalidFieldsBody(
 	require.NoError(t, err)
 
 	return string(body)
+}
+
+func bodyWithShortName(t *testing.T, shortName string) string {
+	t.Helper()
+
+	body, err := json.Marshal(map[string]string{
+		originalURLField:   originalURL,
+		api.ShortNameField: shortName,
+	})
+	require.NoError(t, err)
+
+	return string(body)
+}
+
+func TestShortNameMustFitOnePathSegment(t *testing.T) {
+	t.Parallel()
+
+	endpoints := []struct {
+		name       string
+		method     string
+		path       string
+		structName string
+	}{
+		{
+			name:       "create",
+			method:     http.MethodPost,
+			path:       collectionPath,
+			structName: createRequestStructName,
+		},
+		{
+			name:       "update",
+			method:     http.MethodPut,
+			path:       linkPath,
+			structName: updateRequestStructName,
+		},
+	}
+
+	forbiddenNames := []struct {
+		character string
+		shortName string
+	}{
+		{character: "slash", shortName: "name/part"},
+		{character: "question mark", shortName: "what?x=1"},
+		{character: "hash", shortName: "hash#tag"},
+		{character: "percent", shortName: "pct%2Fx"},
+		{character: "space", shortName: "with space"},
+		{character: "dot", shortName: "dot.name"},
+		{character: "dots only", shortName: "..."},
+		{character: "non ascii letter", shortName: "кириллица"},
+	}
+
+	for _, endpoint := range endpoints {
+		for _, forbidden := range forbiddenNames {
+			t.Run(endpoint.name+" rejects a "+forbidden.character, func(t *testing.T) {
+				t.Parallel()
+
+				recorder := performRequest(
+					t,
+					stubQuerier{},
+					endpoint.method,
+					endpoint.path,
+					bodyWithShortName(t, forbidden.shortName),
+				)
+
+				assertResponse(
+					t,
+					recorder,
+					http.StatusUnprocessableEntity,
+					invalidFieldsBody(t, endpoint.structName, map[string]string{
+						api.ShortNameField: pathSegmentTag,
+					}),
+				)
+			})
+		}
+	}
 }
 
 func TestLinkPayloadValidation(t *testing.T) {

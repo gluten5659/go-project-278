@@ -418,6 +418,14 @@ func TestCreateLink(t *testing.T) {
 			wantBody:      linkJSON(newLink(1)),
 		},
 		{
+			name:          "accepts dashes underscores and digits in a short name",
+			body:          `{"original_url": "https://example.com", "short_name": "my-link_2"}`,
+			wantCalls:     1,
+			wantShortName: "my-link_2",
+			wantStatus:    http.StatusCreated,
+			wantBody:      linkJSON(newLink(1)),
+		},
+		{
 			name:          "reports the taken short name as a validation failure",
 			body:          validLinkBody,
 			takenNames:    1,
