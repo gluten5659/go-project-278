@@ -13,19 +13,23 @@ name, redirects visitors to the original address and records every visit.
 Needs Go 1.26, Node.js 24 and PostgreSQL 17.
 
 ```
-npm ci
+make install
 export DATABASE_DSN="postgres://user:password@localhost:5432/database?sslmode=disable"
-go tool goose -dir db/migrations postgres "$DATABASE_DSN" up
+make migrate
 ```
+
+`make install` pulls both the Node packages of the admin UI and the Go modules.
+`make migrate` applies the migrations to the database from `DATABASE_DSN`.
 
 ## Usage
 
 ```
-npm start
+make start
 ```
 
 The API listens on `http://localhost:8080` and the admin UI on
-`http://localhost:5173`. `make run` starts the API alone, with live reload.
+`http://localhost:5173`. `make run` starts the API alone, with live reload, when
+the admin UI is not needed.
 
 ## Configuration
 

@@ -1,9 +1,16 @@
-.PHONY: build test test-coverage lint fmt lint-fix demo
+.PHONY: install start run build migrate test test-coverage lint fmt lint-fix
 
-build:
-	go build -o bin/app .
+install:
+	npm ci
+	go mod download
+start:
+	npm start
 run:
 	go tool air
+build:
+	go build -o bin/app .
+migrate:
+	go tool goose -dir db/migrations postgres "$${DATABASE_DSN:-$$DATABASE_URL}" up
 test:
 	go test -race ./...
 test-coverage:
