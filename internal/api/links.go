@@ -2,18 +2,16 @@ package api
 
 import (
 	"code/internal/db"
-	"crypto/rand"
+	"code/internal/links"
 	"database/sql"
 	"errors"
 	"fmt"
-	"math/big"
 	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
-	"github.com/jackc/pgx/v5/pgconn"
 )
 
 const (
@@ -31,24 +29,9 @@ type createLinkRequest struct {
 	ShortName   string `json:"short_name"   validate:"omitempty,min=3,max=32,path_segment"`
 }
 
-func (request createLinkRequest) createLinkParameters() db.CreateLinkParams {
-	return db.CreateLinkParams{
-		OriginalURL: request.OriginalURL,
-		ShortName:   request.ShortName,
-	}
-}
-
 type updateLinkRequest struct {
 	OriginalURL string `json:"original_url" validate:"required,http_url"`
 	ShortName   string `json:"short_name"   validate:"required,min=3,max=32,path_segment"`
-}
-
-func (request updateLinkRequest) updateLinkParameters(linkID int64) db.UpdateLinkParams {
-	return db.UpdateLinkParams{
-		ID:          linkID,
-		OriginalURL: request.OriginalURL,
-		ShortName:   request.ShortName,
-	}
 }
 
 type linkResponse struct {
@@ -70,15 +53,16 @@ func newLinkResponse(link db.Link, baseURL string) linkResponse {
 }
 
 type linksHandler struct {
-	queries  db.Querier
-	validate *validator.Validate
-	baseURL  string
+	queries     db.Querier
+	linkService links.Service
+	validate    *validator.Validate
+	baseURL     string
 }
 
-func (handler linksHandler) newLinkResponses(links []db.Link) []linkResponse {
-	responses := make([]linkResponse, 0, len(links))
+func (handler linksHandler) newLinkResponses(storedLinks []db.Link) []linkResponse {
+	responses := make([]linkResponse, 0, len(storedLinks))
 
-	for _, link := range links {
+	for _, link := range storedLinks {
 		responses = append(responses, newLinkResponse(link, handler.baseURL))
 	}
 
@@ -118,7 +102,7 @@ func (handler linksHandler) list(ginContext *gin.Context) {
 		return
 	}
 
-	links, err := handler.queries.GetLinks(
+	storedLinks, err := handler.queries.GetLinks(
 		ginContext.Request.Context(),
 		db.GetLinksParams{
 			PageOffset: bounds.firstIndex,
@@ -132,21 +116,8 @@ func (handler linksHandler) list(ginContext *gin.Context) {
 	}
 
 	ginContext.Header("Content-Range", bounds.contentRange(LinksResource, totalLinks))
-	ginContext.JSON(http.StatusOK, handler.newLinkResponses(links))
+	ginContext.JSON(http.StatusOK, handler.newLinkResponses(storedLinks))
 }
-
-const (
-	ShortNameLength = 8
-
-	shortNameAlphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-
-	ShortNameAttempts = 3
-
-	UniqueViolationCode = "23505"
-	ShortNameIndex      = "idx_short_name"
-)
-
-var errShortNameAttemptsExhausted = errors.New("ran out of short name attempts")
 
 func (handler linksHandler) create(ginContext *gin.Context) {
 	var request createLinkRequest
@@ -156,98 +127,18 @@ func (handler linksHandler) create(ginContext *gin.Context) {
 		return
 	}
 
-	if request.ShortName == "" {
-		handler.createWithGeneratedShortName(ginContext, request)
-
-		return
-	}
-
-	handler.createWithRequestedShortName(ginContext, request)
-}
-
-func (handler linksHandler) createWithRequestedShortName(
-	ginContext *gin.Context,
-	request createLinkRequest,
-) {
-	link, err := handler.queries.CreateLink(
+	link, err := handler.linkService.Create(
 		ginContext.Request.Context(),
-		request.createLinkParameters(),
+		request.OriginalURL,
+		request.ShortName,
 	)
-
-	if isShortNameTaken(err) {
-		respondWithFieldError(ginContext, err, ShortNameField, ShortNameTakenMessage)
-
-		return
-	}
-
 	if err != nil {
-		respondWithInternalError(ginContext, err)
+		respondWithLinkError(ginContext, err)
 
 		return
 	}
 
 	ginContext.JSON(http.StatusCreated, newLinkResponse(link, handler.baseURL))
-}
-
-func (handler linksHandler) createWithGeneratedShortName(
-	ginContext *gin.Context,
-	request createLinkRequest,
-) {
-	for range ShortNameAttempts {
-		generatedShortName, err := generateShortName()
-		if err != nil {
-			respondWithInternalError(ginContext, err)
-
-			return
-		}
-
-		request.ShortName = generatedShortName
-
-		link, err := handler.queries.CreateLink(
-			ginContext.Request.Context(),
-			request.createLinkParameters(),
-		)
-
-		if isShortNameTaken(err) {
-			continue
-		}
-
-		if err != nil {
-			respondWithInternalError(ginContext, err)
-
-			return
-		}
-
-		ginContext.JSON(http.StatusCreated, newLinkResponse(link, handler.baseURL))
-
-		return
-	}
-
-	respondWithUnavailable(ginContext, errShortNameAttemptsExhausted)
-}
-
-func generateShortName() (string, error) {
-	name := make([]byte, ShortNameLength)
-	alphabetSize := big.NewInt(int64(len(shortNameAlphabet)))
-
-	for index := range name {
-		position, err := rand.Int(rand.Reader, alphabetSize)
-		if err != nil {
-			return "", fmt.Errorf("read random source: %w", err)
-		}
-
-		name[index] = shortNameAlphabet[position.Int64()]
-	}
-
-	return string(name), nil
-}
-
-func isShortNameTaken(err error) bool {
-	var pgError *pgconn.PgError
-
-	return errors.As(err, &pgError) &&
-		pgError.Code == UniqueViolationCode &&
-		pgError.ConstraintName == ShortNameIndex
 }
 
 func (handler linksHandler) show(ginContext *gin.Context) {
@@ -290,25 +181,14 @@ func (handler linksHandler) update(ginContext *gin.Context) {
 		return
 	}
 
-	link, err := handler.queries.UpdateLink(
+	link, err := handler.linkService.Update(
 		ginContext.Request.Context(),
-		request.updateLinkParameters(linkID),
+		linkID,
+		request.OriginalURL,
+		request.ShortName,
 	)
-
-	if errors.Is(err, sql.ErrNoRows) {
-		respondWithNotFound(ginContext)
-
-		return
-	}
-
-	if isShortNameTaken(err) {
-		respondWithFieldError(ginContext, err, ShortNameField, ShortNameTakenMessage)
-
-		return
-	}
-
 	if err != nil {
-		respondWithInternalError(ginContext, err)
+		respondWithLinkError(ginContext, err)
 
 		return
 	}

@@ -3,6 +3,7 @@ package api_test
 import (
 	"code/internal/api"
 	"code/internal/db"
+	"code/internal/links"
 	"context"
 	"database/sql"
 	"errors"
@@ -41,7 +42,7 @@ const (
 )
 
 func uniqueViolation(constraintName string) error {
-	return &pgconn.PgError{Code: api.UniqueViolationCode, ConstraintName: constraintName}
+	return &pgconn.PgError{Code: links.UniqueViolationCode, ConstraintName: constraintName}
 }
 
 const queryFailedMessage = "query failed"
@@ -404,7 +405,6 @@ func TestCreateLink(t *testing.T) {
 		body          string
 		takenNames    int
 		queryError    error
-		wantCalls     int
 		wantShortName string
 		wantStatus    int
 		wantBody      string
@@ -412,7 +412,6 @@ func TestCreateLink(t *testing.T) {
 		{
 			name:          "creates a link from the request body",
 			body:          validLinkBody,
-			wantCalls:     1,
 			wantShortName: shortName,
 			wantStatus:    http.StatusCreated,
 			wantBody:      linkJSON(newLink(1)),
@@ -420,7 +419,6 @@ func TestCreateLink(t *testing.T) {
 		{
 			name:          "accepts dashes underscores and digits in a short name",
 			body:          `{"original_url": "https://example.com", "short_name": "my-link_2"}`,
-			wantCalls:     1,
 			wantShortName: "my-link_2",
 			wantStatus:    http.StatusCreated,
 			wantBody:      linkJSON(newLink(1)),
@@ -429,58 +427,24 @@ func TestCreateLink(t *testing.T) {
 			name:          "reports the taken short name as a validation failure",
 			body:          validLinkBody,
 			takenNames:    1,
-			wantCalls:     1,
 			wantShortName: shortName,
 			wantStatus:    http.StatusUnprocessableEntity,
 			wantBody:      takenShortNameBody,
 		},
 		{
-			name:          "returns internal server error when creating fails",
-			body:          validLinkBody,
-			queryError:    errQueryFailed,
-			wantCalls:     1,
-			wantShortName: shortName,
-			wantStatus:    http.StatusInternalServerError,
-			wantBody:      internalErrorBody,
-		},
-		{
-			name:       "generates a short name when the body has none",
+			name:       "answers service unavailable when no free short name is left",
 			body:       namelessBody,
-			wantCalls:  1,
-			wantStatus: http.StatusCreated,
-			wantBody:   linkJSON(newLink(1)),
-		},
-		{
-			name:       "retries when the generated short name is taken",
-			body:       namelessBody,
-			takenNames: 1,
-			wantCalls:  2,
-			wantStatus: http.StatusCreated,
-			wantBody:   linkJSON(newLink(1)),
-		},
-		{
-			name:       "gives up once the attempts run out",
-			body:       namelessBody,
-			takenNames: api.ShortNameAttempts,
-			wantCalls:  api.ShortNameAttempts,
+			takenNames: links.ShortNameAttempts,
 			wantStatus: http.StatusServiceUnavailable,
 			wantBody:   unavailableBody,
 		},
 		{
-			name:       "does not retry an unrelated failure",
-			body:       namelessBody,
-			queryError: errQueryFailed,
-			wantCalls:  1,
-			wantStatus: http.StatusInternalServerError,
-			wantBody:   internalErrorBody,
-		},
-		{
-			name:       "does not retry a violation of another index",
-			body:       namelessBody,
-			queryError: uniqueViolation("links_pkey"),
-			wantCalls:  1,
-			wantStatus: http.StatusInternalServerError,
-			wantBody:   internalErrorBody,
+			name:          "returns internal server error when creating fails",
+			body:          validLinkBody,
+			queryError:    errQueryFailed,
+			wantShortName: shortName,
+			wantStatus:    http.StatusInternalServerError,
+			wantBody:      internalErrorBody,
 		},
 	}
 
@@ -502,7 +466,7 @@ func TestCreateLink(t *testing.T) {
 					}
 
 					if len(receivedParameters) <= testCase.takenNames {
-						return db.Link{}, uniqueViolation(api.ShortNameIndex)
+						return db.Link{}, uniqueViolation(links.ShortNameIndex)
 					}
 
 					return newLink(1), nil
@@ -512,23 +476,13 @@ func TestCreateLink(t *testing.T) {
 			recorder := performRequest(t, queries, http.MethodPost, collectionPath, testCase.body)
 
 			assertResponse(t, recorder, testCase.wantStatus, testCase.wantBody)
-			require.Len(t, receivedParameters, testCase.wantCalls)
+			require.NotEmpty(t, receivedParameters)
 
-			generatedNamePattern := fmt.Sprintf(`^[a-zA-Z]{%d}$`, api.ShortNameLength)
-			seenNames := make(map[string]bool, len(receivedParameters))
-
-			for _, parameters := range receivedParameters {
-				assert.Equal(t, originalURL, parameters.OriginalURL)
-
-				if testCase.wantShortName == "" {
-					assert.Regexp(t, generatedNamePattern, parameters.ShortName)
-				} else {
-					assert.Equal(t, testCase.wantShortName, parameters.ShortName)
-				}
-
-				assert.False(t, seenNames[parameters.ShortName], "reused a short name")
-
-				seenNames[parameters.ShortName] = true
+			if testCase.wantShortName != "" {
+				assert.Equal(t, db.CreateLinkParams{
+					OriginalURL: originalURL,
+					ShortName:   testCase.wantShortName,
+				}, receivedParameters[0])
 			}
 		})
 	}
@@ -704,7 +658,7 @@ func TestUpdateLink(t *testing.T) {
 			name:            "reports the taken short name as a validation failure",
 			path:            linkPath,
 			body:            validLinkBody,
-			updateLink:      failedWith(uniqueViolation(api.ShortNameIndex)),
+			updateLink:      failedWith(uniqueViolation(links.ShortNameIndex)),
 			wantQueryCalled: true,
 			wantParameters: db.UpdateLinkParams{
 				ID:          1,

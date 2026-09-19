@@ -1,6 +1,7 @@
 package api
 
 import (
+	"code/internal/links"
 	"errors"
 	"net/http"
 
@@ -14,6 +15,19 @@ const (
 	internalErrorMessage  = "internal server error"
 	unavailableMessage    = "service unavailable"
 )
+
+func respondWithLinkError(ginContext *gin.Context, err error) {
+	switch {
+	case errors.Is(err, links.ErrNotFound):
+		respondWithNotFound(ginContext)
+	case errors.Is(err, links.ErrShortNameTaken):
+		respondWithFieldError(ginContext, err, ShortNameField, ShortNameTakenMessage)
+	case errors.Is(err, links.ErrNoFreeShortName):
+		respondWithUnavailable(ginContext, err)
+	default:
+		respondWithInternalError(ginContext, err)
+	}
+}
 
 func respondWithValidationError(ginContext *gin.Context, err error) {
 	var validationErrors validator.ValidationErrors

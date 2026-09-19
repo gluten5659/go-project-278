@@ -2,6 +2,7 @@ package api
 
 import (
 	"code/internal/db"
+	"code/internal/links"
 	"net/http"
 	"time"
 
@@ -45,10 +46,11 @@ func NewRouter(config Config) *gin.Engine {
 
 	ginEngine.GET("/ping", health.check)
 
-	links := linksHandler{
-		queries:  config.Queries,
-		validate: newValidator(),
-		baseURL:  config.BaseURL,
+	linkHandler := linksHandler{
+		queries:     config.Queries,
+		linkService: links.NewService(config.Queries),
+		validate:    newValidator(),
+		baseURL:     config.BaseURL,
 	}
 	linkVisits := linkVisitsHandler{queries: config.Queries, reportError: config.ReportError}
 
@@ -56,11 +58,11 @@ func NewRouter(config Config) *gin.Engine {
 
 	ginEngine.GET("/api/link_visits", linkVisits.list)
 
-	ginEngine.GET("/api/links", links.list)
-	ginEngine.POST("/api/links", links.create)
-	ginEngine.GET("/api/links/:id", links.show)
-	ginEngine.PUT("/api/links/:id", links.update)
-	ginEngine.DELETE("/api/links/:id", links.destroy)
+	ginEngine.GET("/api/links", linkHandler.list)
+	ginEngine.POST("/api/links", linkHandler.create)
+	ginEngine.GET("/api/links/:id", linkHandler.show)
+	ginEngine.PUT("/api/links/:id", linkHandler.update)
+	ginEngine.DELETE("/api/links/:id", linkHandler.destroy)
 
 	return ginEngine
 }
