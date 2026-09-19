@@ -46,17 +46,23 @@ func NewRouter(config Config) *gin.Engine {
 
 	ginEngine.GET("/ping", health.check)
 
+	linkService := links.NewService(config.Queries)
+
 	linkHandler := linksHandler{
 		queries:     config.Queries,
-		linkService: links.NewService(config.Queries),
+		linkService: linkService,
 		validate:    newValidator(),
 		baseURL:     config.BaseURL,
 	}
-	linkVisits := linkVisitsHandler{queries: config.Queries, reportError: config.ReportError}
+	visitHandler := linkVisitsHandler{
+		queries:     config.Queries,
+		linkService: linkService,
+		reportError: config.ReportError,
+	}
 
-	ginEngine.GET(RedirectPrefix+":code", linkVisits.redirect)
+	ginEngine.GET(RedirectPrefix+":code", visitHandler.redirect)
 
-	ginEngine.GET("/api/link_visits", linkVisits.list)
+	ginEngine.GET("/api/link_visits", visitHandler.list)
 
 	ginEngine.GET("/api/links", linkHandler.list)
 	ginEngine.POST("/api/links", linkHandler.create)

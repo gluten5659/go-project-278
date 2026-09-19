@@ -3,8 +3,6 @@ package api
 import (
 	"code/internal/db"
 	"code/internal/links"
-	"database/sql"
-	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -149,16 +147,9 @@ func (handler linksHandler) show(ginContext *gin.Context) {
 		return
 	}
 
-	link, err := handler.queries.GetLinkById(ginContext.Request.Context(), linkID)
-
-	if errors.Is(err, sql.ErrNoRows) {
-		respondWithNotFound(ginContext)
-
-		return
-	}
-
+	link, err := handler.linkService.Find(ginContext.Request.Context(), linkID)
 	if err != nil {
-		respondWithInternalError(ginContext, err)
+		respondWithLinkError(ginContext, err)
 
 		return
 	}

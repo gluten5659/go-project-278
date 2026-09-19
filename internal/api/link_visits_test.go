@@ -149,7 +149,7 @@ func TestRedirect(t *testing.T) {
 			},
 			wantStatus: http.StatusInternalServerError,
 			wantReports: []reportedError{
-				{path: redirectPath, message: queryFailedMessage},
+				{path: redirectPath, message: `resolve short name "example": ` + queryFailedMessage},
 			},
 		},
 		{
@@ -161,7 +161,7 @@ func TestRedirect(t *testing.T) {
 			wantVisitRecorded:  true,
 			wantVisit:          recordedVisit(remoteIP),
 			wantReports: []reportedError{
-				{path: redirectPath, message: queryFailedMessage},
+				{path: redirectPath, message: "record visit to link 1: " + queryFailedMessage},
 			},
 		},
 	}

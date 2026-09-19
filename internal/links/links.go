@@ -17,6 +17,9 @@ var (
 type Store interface {
 	CreateLink(ctx context.Context, arg db.CreateLinkParams) (db.Link, error)
 	UpdateLink(ctx context.Context, arg db.UpdateLinkParams) (db.Link, error)
+	GetLinkById(ctx context.Context, id int64) (db.Link, error)
+	GetLinkByShortName(ctx context.Context, shortName string) (db.Link, error)
+	CreateLinkVisit(ctx context.Context, arg db.CreateLinkVisitParams) (db.LinkVisit, error)
 }
 
 type Service struct {
@@ -61,6 +64,34 @@ func (service Service) Update(
 
 	if err != nil {
 		return db.Link{}, fmt.Errorf("update link %d: %w", linkID, err)
+	}
+
+	return link, nil
+}
+
+func (service Service) Find(ctx context.Context, linkID int64) (db.Link, error) {
+	link, err := service.store.GetLinkById(ctx, linkID)
+
+	if errors.Is(err, sql.ErrNoRows) {
+		return db.Link{}, fmt.Errorf("link %d: %w", linkID, ErrNotFound)
+	}
+
+	if err != nil {
+		return db.Link{}, fmt.Errorf("find link %d: %w", linkID, err)
+	}
+
+	return link, nil
+}
+
+func (service Service) Resolve(ctx context.Context, shortName string) (db.Link, error) {
+	link, err := service.store.GetLinkByShortName(ctx, shortName)
+
+	if errors.Is(err, sql.ErrNoRows) {
+		return db.Link{}, fmt.Errorf("short name %q: %w", shortName, ErrNotFound)
+	}
+
+	if err != nil {
+		return db.Link{}, fmt.Errorf("resolve short name %q: %w", shortName, err)
 	}
 
 	return link, nil

@@ -2,8 +2,7 @@ package api
 
 import (
 	"code/internal/db"
-	"database/sql"
-	"errors"
+	"code/internal/links"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -19,6 +18,7 @@ const (
 
 type linkVisitsHandler struct {
 	queries     db.Querier
+	linkService links.Service
 	reportError ErrorReporter
 }
 
@@ -59,40 +59,29 @@ func (handler linkVisitsHandler) list(ginContext *gin.Context) {
 }
 
 func (handler linkVisitsHandler) redirect(ginContext *gin.Context) {
-	link, err := handler.queries.GetLinkByShortName(
-		ginContext.Request.Context(),
-		ginContext.Param("code"),
-	)
+	ctx := ginContext.Request.Context()
 
-	if errors.Is(err, sql.ErrNoRows) {
-		respondWithNotFound(ginContext)
-
-		return
-	}
-
+	link, err := handler.linkService.Resolve(ctx, ginContext.Param("code"))
 	if err != nil {
-		respondWithInternalError(ginContext, err)
+		respondWithLinkError(ginContext, err)
 
 		return
 	}
 
-	handler.recordVisit(ginContext, link.ID)
+	err = handler.linkService.RecordVisit(ctx, newVisit(ginContext, link.ID))
+	if err != nil {
+		handler.reportError(ginContext.Request, err)
+	}
 
 	ginContext.Redirect(redirectStatus, link.OriginalURL)
 }
 
-func (handler linkVisitsHandler) recordVisit(ginContext *gin.Context, linkID int64) {
-	_, err := handler.queries.CreateLinkVisit(
-		ginContext.Request.Context(),
-		db.CreateLinkVisitParams{
-			LinkID:    linkID,
-			IP:        ginContext.ClientIP(),
-			UserAgent: ginContext.Request.UserAgent(),
-			Referer:   ginContext.Request.Referer(),
-			Status:    redirectStatus,
-		},
-	)
-	if err != nil {
-		handler.reportError(ginContext.Request, err)
+func newVisit(ginContext *gin.Context, linkID int64) links.Visit {
+	return links.Visit{
+		LinkID:    linkID,
+		IP:        ginContext.ClientIP(),
+		UserAgent: ginContext.Request.UserAgent(),
+		Referer:   ginContext.Request.Referer(),
+		Status:    redirectStatus,
 	}
 }
