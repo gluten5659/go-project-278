@@ -21,6 +21,7 @@ const (
 	sentryFlushTimeout  = 2 * time.Second
 	databasePingTimeout = 5 * time.Second
 	readHeaderTimeout   = 5 * time.Second
+	shutdownTimeout     = 3 * time.Second
 
 	maxOpenConnections    = 10
 	maxIdleConnections    = 5
@@ -113,7 +114,7 @@ func reportToSentry(request *http.Request, err error) {
 	hub.Flush(sentryFlushTimeout)
 }
 
-func Run() error {
+func Run(ctx context.Context) error {
 	databaseDSN, err := requireDatabaseDSN()
 	if err != nil {
 		return err
@@ -143,10 +144,10 @@ func Run() error {
 		}
 	}()
 
-	ctx, cancel := context.WithTimeout(context.Background(), databasePingTimeout)
-	defer cancel()
+	pingCtx, cancelPing := context.WithTimeout(ctx, databasePingTimeout)
+	defer cancelPing()
 
-	err = conn.PingContext(ctx)
+	err = conn.PingContext(pingCtx)
 	if err != nil {
 		return fmt.Errorf("ping database: %w", err)
 	}
@@ -159,19 +160,34 @@ func Run() error {
 		ReportError:    reportToSentry,
 	})
 
-	return serve(router)
+	return serve(ctx, router)
 }
 
-func serve(router http.Handler) error {
+func serve(ctx context.Context, router http.Handler) error {
 	server := &http.Server{
 		Addr:              serverAddress,
 		Handler:           router,
 		ReadHeaderTimeout: readHeaderTimeout,
 	}
 
-	err := server.ListenAndServe()
-	if err != nil {
+	serverFailed := make(chan error, 1)
+
+	go func() {
+		serverFailed <- server.ListenAndServe()
+	}()
+
+	select {
+	case err := <-serverFailed:
 		return fmt.Errorf("run server on %s: %w", serverAddress, err)
+	case <-ctx.Done():
+	}
+
+	shutdownCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), shutdownTimeout)
+	defer cancel()
+
+	err := server.Shutdown(shutdownCtx)
+	if err != nil {
+		return fmt.Errorf("shut down server: %w", err)
 	}
 
 	return nil
