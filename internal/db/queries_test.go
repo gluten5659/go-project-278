@@ -163,7 +163,7 @@ func TestReadStoredLink(t *testing.T) {
 		{
 			name: "by identifier",
 			read: func(queries *db.Queries, stored db.Link) (db.Link, error) {
-				return queries.GetLinkById(t.Context(), stored.ID)
+				return queries.GetLinkByID(t.Context(), stored.ID)
 			},
 		},
 		{
@@ -199,7 +199,7 @@ func TestReadMissingLink(t *testing.T) {
 		{
 			name: "by identifier",
 			read: func(queries *db.Queries) (db.Link, error) {
-				return queries.GetLinkById(t.Context(), -1)
+				return queries.GetLinkByID(t.Context(), -1)
 			},
 		},
 		{

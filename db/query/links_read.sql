@@ -21,7 +21,7 @@ LIMIT sqlc.arg(page_size)::bigint OFFSET sqlc.arg(page_offset)::bigint;
 SELECT count(*)
 FROM links;
 
--- name: GetLinkById :one
+-- name: GetLinkByID :one
 SELECT
     id,
     original_url,

@@ -21,7 +21,7 @@ func (q *Queries) CountLinks(ctx context.Context) (int64, error) {
 	return count, err
 }
 
-const getLinkById = `-- name: GetLinkById :one
+const getLinkByID = `-- name: GetLinkByID :one
 SELECT
     id,
     original_url,
@@ -31,8 +31,8 @@ FROM links
 WHERE id = $1
 `
 
-func (q *Queries) GetLinkById(ctx context.Context, id int64) (Link, error) {
-	row := q.db.QueryRowContext(ctx, getLinkById, id)
+func (q *Queries) GetLinkByID(ctx context.Context, id int64) (Link, error) {
+	row := q.db.QueryRowContext(ctx, getLinkByID, id)
 	var i Link
 	err := row.Scan(
 		&i.ID,

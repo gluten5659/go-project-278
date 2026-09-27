@@ -20,7 +20,7 @@ type Store interface {
 	DeleteLink(ctx context.Context, id int64) (int64, error)
 	CountLinks(ctx context.Context) (int64, error)
 	GetLinks(ctx context.Context, arg db.GetLinksParams) ([]db.Link, error)
-	GetLinkById(ctx context.Context, id int64) (db.Link, error)
+	GetLinkByID(ctx context.Context, id int64) (db.Link, error)
 	GetLinkByShortName(ctx context.Context, shortName string) (db.Link, error)
 	CreateLinkVisit(ctx context.Context, arg db.CreateLinkVisitParams) (db.LinkVisit, error)
 	CountLinkVisits(ctx context.Context) (int64, error)
@@ -109,7 +109,7 @@ func (service Service) List(ctx context.Context, offset, size int64) ([]db.Link,
 }
 
 func (service Service) Find(ctx context.Context, linkID int64) (db.Link, error) {
-	link, err := service.store.GetLinkById(ctx, linkID)
+	link, err := service.store.GetLinkByID(ctx, linkID)
 
 	if errors.Is(err, sql.ErrNoRows) {
 		return db.Link{}, fmt.Errorf("link %d: %w", linkID, ErrNotFound)

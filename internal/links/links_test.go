@@ -95,9 +95,9 @@ func (stub stubStore) UpdateLink(
 	return stub.updateLink(ctx, parameters)
 }
 
-func (stub stubStore) GetLinkById(ctx context.Context, linkID int64) (db.Link, error) {
+func (stub stubStore) GetLinkByID(ctx context.Context, linkID int64) (db.Link, error) {
 	if stub.getLinkByID == nil {
-		panic("GetLinkById was not expected to be called")
+		panic("GetLinkByID was not expected to be called")
 	}
 
 	return stub.getLinkByID(ctx, linkID)

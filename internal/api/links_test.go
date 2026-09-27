@@ -102,9 +102,9 @@ func (stub stubQuerier) CreateLink(
 	return stub.createLink(ctx, parameters)
 }
 
-func (stub stubQuerier) GetLinkById(ctx context.Context, linkID int64) (db.Link, error) {
+func (stub stubQuerier) GetLinkByID(ctx context.Context, linkID int64) (db.Link, error) {
 	if stub.getLinkByID == nil {
-		panic("GetLinkById was not expected to be called")
+		panic("GetLinkByID was not expected to be called")
 	}
 
 	return stub.getLinkByID(ctx, linkID)
