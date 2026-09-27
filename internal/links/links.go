@@ -17,6 +17,9 @@ var (
 type Store interface {
 	CreateLink(ctx context.Context, arg db.CreateLinkParams) (db.Link, error)
 	UpdateLink(ctx context.Context, arg db.UpdateLinkParams) (db.Link, error)
+	DeleteLink(ctx context.Context, id int64) (int64, error)
+	CountLinks(ctx context.Context) (int64, error)
+	GetLinks(ctx context.Context, arg db.GetLinksParams) ([]db.Link, error)
 	GetLinkById(ctx context.Context, id int64) (db.Link, error)
 	GetLinkByShortName(ctx context.Context, shortName string) (db.Link, error)
 	CreateLinkVisit(ctx context.Context, arg db.CreateLinkVisitParams) (db.LinkVisit, error)
@@ -67,6 +70,40 @@ func (service Service) Update(
 	}
 
 	return link, nil
+}
+
+func (service Service) Delete(ctx context.Context, linkID int64) error {
+	deletedCount, err := service.store.DeleteLink(ctx, linkID)
+	if err != nil {
+		return fmt.Errorf("delete link %d: %w", linkID, err)
+	}
+
+	if deletedCount == 0 {
+		return fmt.Errorf("link %d: %w", linkID, ErrNotFound)
+	}
+
+	return nil
+}
+
+func (service Service) Count(ctx context.Context) (int64, error) {
+	totalLinks, err := service.store.CountLinks(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("count links: %w", err)
+	}
+
+	return totalLinks, nil
+}
+
+func (service Service) List(ctx context.Context, offset, size int64) ([]db.Link, error) {
+	storedLinks, err := service.store.GetLinks(ctx, db.GetLinksParams{
+		PageOffset: offset,
+		PageSize:   size,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list %d links from %d: %w", size, offset, err)
+	}
+
+	return storedLinks, nil
 }
 
 func (service Service) Find(ctx context.Context, linkID int64) (db.Link, error) {

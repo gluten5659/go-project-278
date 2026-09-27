@@ -82,7 +82,7 @@ func TestReportsServerErrors(t *testing.T) {
 			path:       collectionPath,
 			wantStatus: http.StatusInternalServerError,
 			wantReports: []reportedError{
-				{path: collectionPath, message: queryFailedMessage},
+				{path: collectionPath, message: "count links: " + queryFailedMessage},
 			},
 		},
 		{

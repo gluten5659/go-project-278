@@ -51,7 +51,6 @@ func newLinkResponse(link db.Link, baseURL string) linkResponse {
 }
 
 type linksHandler struct {
-	queries     db.Querier
 	linkService links.Service
 	validate    *validator.Validate
 	baseURL     string
@@ -86,7 +85,9 @@ func bindRequest(ginContext *gin.Context, validate *validator.Validate, request 
 }
 
 func (handler linksHandler) list(ginContext *gin.Context) {
-	totalLinks, err := handler.queries.CountLinks(ginContext.Request.Context())
+	ctx := ginContext.Request.Context()
+
+	totalLinks, err := handler.linkService.Count(ctx)
 	if err != nil {
 		respondWithInternalError(ginContext, err)
 
@@ -100,13 +101,7 @@ func (handler linksHandler) list(ginContext *gin.Context) {
 		return
 	}
 
-	storedLinks, err := handler.queries.GetLinks(
-		ginContext.Request.Context(),
-		db.GetLinksParams{
-			PageOffset: bounds.offset,
-			PageSize:   bounds.size,
-		},
-	)
+	storedLinks, err := handler.linkService.List(ctx, bounds.offset, bounds.size)
 	if err != nil {
 		respondWithInternalError(ginContext, err)
 
@@ -197,15 +192,9 @@ func (handler linksHandler) destroy(ginContext *gin.Context) {
 		return
 	}
 
-	deletedCount, err := handler.queries.DeleteLink(ginContext.Request.Context(), linkID)
+	err = handler.linkService.Delete(ginContext.Request.Context(), linkID)
 	if err != nil {
-		respondWithInternalError(ginContext, err)
-
-		return
-	}
-
-	if deletedCount == 0 {
-		respondWithNotFound(ginContext)
+		respondWithLinkError(ginContext, err)
 
 		return
 	}

@@ -18,6 +18,10 @@ const (
 	originalURL = "https://example.com"
 	shortName   = "example"
 	linkID      = 7
+
+	totalLinks = 42
+	pageOffset = 10
+	pageSize   = 5
 )
 
 var errQueryFailed = errors.New("query failed")
@@ -25,12 +29,42 @@ var errQueryFailed = errors.New("query failed")
 type stubStore struct {
 	createLink         func(ctx context.Context, parameters db.CreateLinkParams) (db.Link, error)
 	updateLink         func(ctx context.Context, parameters db.UpdateLinkParams) (db.Link, error)
+	deleteLink         func(ctx context.Context, linkID int64) (int64, error)
+	countLinks         func(ctx context.Context) (int64, error)
+	getLinks           func(ctx context.Context, parameters db.GetLinksParams) ([]db.Link, error)
 	getLinkByID        func(ctx context.Context, linkID int64) (db.Link, error)
 	getLinkByShortName func(ctx context.Context, shortName string) (db.Link, error)
 	createLinkVisit    func(
 		ctx context.Context,
 		parameters db.CreateLinkVisitParams,
 	) (db.LinkVisit, error)
+}
+
+func (stub stubStore) DeleteLink(ctx context.Context, linkID int64) (int64, error) {
+	if stub.deleteLink == nil {
+		panic("DeleteLink was not expected to be called")
+	}
+
+	return stub.deleteLink(ctx, linkID)
+}
+
+func (stub stubStore) CountLinks(ctx context.Context) (int64, error) {
+	if stub.countLinks == nil {
+		panic("CountLinks was not expected to be called")
+	}
+
+	return stub.countLinks(ctx)
+}
+
+func (stub stubStore) GetLinks(
+	ctx context.Context,
+	parameters db.GetLinksParams,
+) ([]db.Link, error) {
+	if stub.getLinks == nil {
+		panic("GetLinks was not expected to be called")
+	}
+
+	return stub.getLinks(ctx, parameters)
 }
 
 func (stub stubStore) CreateLink(
@@ -249,5 +283,157 @@ func TestFindAndResolve(t *testing.T) {
 				assert.Equal(t, storedLink(shortName), link)
 			})
 		}
+	}
+}
+
+func TestDelete(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name         string
+		deletedCount int64
+		queryError   error
+		wantError    error
+	}{
+		{
+			name:         "deletes the link",
+			deletedCount: 1,
+		},
+		{
+			name:      "reports a link that was not there",
+			wantError: links.ErrNotFound,
+		},
+		{
+			name:       "passes a failed delete through",
+			queryError: errQueryFailed,
+			wantError:  errQueryFailed,
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			receivedID := int64(0)
+
+			service := links.NewService(stubStore{
+				deleteLink: func(_ context.Context, requestedID int64) (int64, error) {
+					receivedID = requestedID
+
+					return testCase.deletedCount, testCase.queryError
+				},
+			})
+
+			err := service.Delete(t.Context(), linkID)
+
+			assert.Equal(t, int64(linkID), receivedID)
+
+			if testCase.wantError != nil {
+				require.ErrorIs(t, err, testCase.wantError)
+
+				return
+			}
+
+			require.NoError(t, err)
+		})
+	}
+}
+
+func TestCount(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name       string
+		queryError error
+		wantError  error
+	}{
+		{
+			name: "returns the number of stored links",
+		},
+		{
+			name:       "passes a failed count through",
+			queryError: errQueryFailed,
+			wantError:  errQueryFailed,
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			service := links.NewService(stubStore{
+				countLinks: func(context.Context) (int64, error) {
+					return totalLinks, testCase.queryError
+				},
+			})
+
+			total, err := service.Count(t.Context())
+
+			if testCase.wantError != nil {
+				require.ErrorIs(t, err, testCase.wantError)
+
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, int64(totalLinks), total)
+		})
+	}
+}
+
+func TestList(t *testing.T) {
+	t.Parallel()
+
+	page := []db.Link{storedLink(shortName)}
+
+	testCases := []struct {
+		name       string
+		queryError error
+		wantError  error
+	}{
+		{
+			name: "returns the requested page",
+		},
+		{
+			name:       "passes a failed page query through",
+			queryError: errQueryFailed,
+			wantError:  errQueryFailed,
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			var receivedParameters db.GetLinksParams
+
+			service := links.NewService(stubStore{
+				getLinks: func(
+					_ context.Context,
+					parameters db.GetLinksParams,
+				) ([]db.Link, error) {
+					receivedParameters = parameters
+
+					return page, testCase.queryError
+				},
+			})
+
+			listed, err := service.List(t.Context(), pageOffset, pageSize)
+
+			assert.Equal(
+				t,
+				db.GetLinksParams{PageOffset: pageOffset, PageSize: pageSize},
+				receivedParameters,
+			)
+
+			if testCase.wantError != nil {
+				require.ErrorIs(t, err, testCase.wantError)
+
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, page, listed)
+		})
 	}
 }
