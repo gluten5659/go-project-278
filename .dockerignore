@@ -5,3 +5,6 @@ bin/app
 coverage.out
 *.out
 *.test
+.env
+.env.*
+node_modules
