@@ -67,7 +67,7 @@ func (handler linkVisitsHandler) redirect(ginContext *gin.Context) {
 
 	err = handler.linkService.RecordVisit(ctx, newVisit(ginContext, link.ID))
 	if err != nil {
-		handler.reportError(ginContext.Request, err)
+		handler.reportError(newErrorReport(ginContext), err)
 	}
 
 	ginContext.Redirect(redirectStatus, link.OriginalURL)

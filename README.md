@@ -137,10 +137,11 @@ which leaves the client a single place to look for field errors.
 {"errors": {"short_name": "short name already in use"}}
 ```
 
-Anything that answers `500` is also sent to Sentry along with the request, as
-long as `SENTRY_DSN` is set. A panic is reported the same way and still answers
-`500`. Client errors never reach Sentry, so a flood of bad requests cannot drown
-out the real failures.
+Anything that answers `500` is also sent to Sentry with the method and the path of
+the request, as long as `SENTRY_DSN` is set. Nothing else about the caller travels
+with it, so the address, the user agent and the headers stay out of the report. A
+panic is reported the same way and still answers `500`. Client errors never reach
+Sentry, so a flood of bad requests cannot drown out the real failures.
 
 ### Pagination
 

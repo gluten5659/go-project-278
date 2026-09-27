@@ -75,8 +75,12 @@ func performRedirect(
 
 	var reports []reportedError
 
-	recordReport := func(request *http.Request, err error) {
-		reports = append(reports, reportedError{path: request.URL.Path, message: err.Error()})
+	recordReport := func(report api.ErrorReport, err error) {
+		reports = append(reports, reportedError{
+			method:  report.Method,
+			path:    report.Path,
+			message: err.Error(),
+		})
 	}
 
 	recorder := httptest.NewRecorder()
@@ -149,7 +153,11 @@ func TestRedirect(t *testing.T) {
 			},
 			wantStatus: http.StatusInternalServerError,
 			wantReports: []reportedError{
-				{path: redirectPath, message: `resolve short name "example": ` + queryFailedMessage},
+				{
+					method:  http.MethodGet,
+					path:    redirectPath,
+					message: `resolve short name "example": ` + queryFailedMessage,
+				},
 			},
 		},
 		{
@@ -161,7 +169,11 @@ func TestRedirect(t *testing.T) {
 			wantVisitRecorded:  true,
 			wantVisit:          recordedVisit(remoteIP),
 			wantReports: []reportedError{
-				{path: redirectPath, message: "record visit to link 1: " + queryFailedMessage},
+				{
+					method:  http.MethodGet,
+					path:    redirectPath,
+					message: "record visit to link 1: " + queryFailedMessage,
+				},
 			},
 		},
 	}

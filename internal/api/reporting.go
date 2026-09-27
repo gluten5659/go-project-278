@@ -8,7 +8,19 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type ErrorReporter func(request *http.Request, err error)
+type ErrorReport struct {
+	Method string
+	Path   string
+}
+
+type ErrorReporter func(report ErrorReport, err error)
+
+func newErrorReport(ginContext *gin.Context) ErrorReport {
+	return ErrorReport{
+		Method: ginContext.Request.Method,
+		Path:   ginContext.Request.URL.Path,
+	}
+}
 
 var errPanic = errors.New("panic")
 
@@ -23,7 +35,7 @@ func reportServerErrors(reportError ErrorReporter) gin.HandlerFunc {
 		}
 
 		for _, ginError := range ginContext.Errors {
-			reportError(ginContext.Request, ginError.Err)
+			reportError(newErrorReport(ginContext), ginError.Err)
 		}
 	}
 }
@@ -34,7 +46,7 @@ func reportRecoveredPanic(ginContext *gin.Context, reportError ErrorReporter) {
 		return
 	}
 
-	reportError(ginContext.Request, panicError(recovered))
+	reportError(newErrorReport(ginContext), panicError(recovered))
 
 	panic(recovered)
 }

@@ -16,6 +16,7 @@ import (
 )
 
 type reportedError struct {
+	method  string
 	path    string
 	message string
 }
@@ -33,8 +34,12 @@ func performReportedRequest(
 
 	var reports []reportedError
 
-	recordReport := func(request *http.Request, err error) {
-		reports = append(reports, reportedError{path: request.URL.Path, message: err.Error()})
+	recordReport := func(report api.ErrorReport, err error) {
+		reports = append(reports, reportedError{
+			method:  report.Method,
+			path:    report.Path,
+			message: err.Error(),
+		})
 	}
 
 	recorder := httptest.NewRecorder()
@@ -82,7 +87,11 @@ func TestReportsServerErrors(t *testing.T) {
 			path:       collectionPath,
 			wantStatus: http.StatusInternalServerError,
 			wantReports: []reportedError{
-				{path: collectionPath, message: "count links: " + queryFailedMessage},
+				{
+					method:  http.MethodGet,
+					path:    collectionPath,
+					message: "count links: " + queryFailedMessage,
+				},
 			},
 		},
 		{
@@ -92,7 +101,7 @@ func TestReportsServerErrors(t *testing.T) {
 			path:       collectionPath,
 			wantStatus: http.StatusInternalServerError,
 			wantReports: []reportedError{
-				{path: collectionPath, message: "panic: boom"},
+				{method: http.MethodGet, path: collectionPath, message: "panic: boom"},
 			},
 		},
 		{

@@ -139,7 +139,7 @@ func startSentry() error {
 	err := sentry.Init(sentry.ClientOptions{
 		Dsn: sentryDSN,
 
-		SendDefaultPII: true,
+		SendDefaultPII: false,
 
 		EnableTracing:        false,
 		TracesSampleRate:     0,
@@ -154,9 +154,12 @@ func startSentry() error {
 	return nil
 }
 
-func reportToSentry(request *http.Request, err error) {
+func reportToSentry(report api.ErrorReport, err error) {
 	hub := sentry.CurrentHub().Clone()
-	hub.Scope().SetRequest(request)
+	hub.Scope().SetTags(map[string]string{
+		"method": report.Method,
+		"path":   report.Path,
+	})
 	hub.CaptureException(err)
 	hub.Flush(sentryFlushTimeout)
 }

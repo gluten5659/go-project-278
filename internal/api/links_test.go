@@ -190,7 +190,7 @@ func linkJSON(link db.Link) string {
 	)
 }
 
-func discardErrorReports(*http.Request, error) {}
+func discardErrorReports(api.ErrorReport, error) {}
 
 type stubDatabase struct {
 	pingError error
