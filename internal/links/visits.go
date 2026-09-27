@@ -6,6 +6,7 @@ import (
 	"fmt"
 )
 
+// Visit is one hit of a short link as the redirect saw it.
 type Visit struct {
 	LinkID    int64
 	IP        string
@@ -14,6 +15,8 @@ type Visit struct {
 	Status    int32
 }
 
+// RecordVisit stores the visit. The caller decides what a failure means, because
+// the statistics are not what the visitor is waiting for.
 func (service Service) RecordVisit(ctx context.Context, visit Visit) error {
 	_, err := service.store.CreateLinkVisit(ctx, db.CreateLinkVisitParams{
 		LinkID:    visit.LinkID,
@@ -29,6 +32,8 @@ func (service Service) RecordVisit(ctx context.Context, visit Visit) error {
 	return nil
 }
 
+// CountVisits reports how many visits are stored, which is what a caller needs
+// to describe a page of them.
 func (service Service) CountVisits(ctx context.Context) (int64, error) {
 	totalVisits, err := service.store.CountLinkVisits(ctx)
 	if err != nil {
@@ -38,6 +43,8 @@ func (service Service) CountVisits(ctx context.Context) (int64, error) {
 	return totalVisits, nil
 }
 
+// ListVisits returns at most size visits, starting at offset and ordered by
+// identifier.
 func (service Service) ListVisits(
 	ctx context.Context,
 	offset, size int64,

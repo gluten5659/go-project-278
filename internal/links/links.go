@@ -9,11 +9,19 @@ import (
 )
 
 var (
-	ErrNotFound        = errors.New("link not found")
-	ErrShortNameTaken  = errors.New("short name already in use")
+	// ErrNotFound means no stored link matches what the caller asked for.
+	ErrNotFound = errors.New("link not found")
+
+	// ErrShortNameTaken means another link already holds that short name.
+	ErrShortNameTaken = errors.New("short name already in use")
+
+	// ErrNoFreeShortName means every generated name was taken and the caller
+	// should try again later.
 	ErrNoFreeShortName = errors.New("ran out of short name attempts")
 )
 
+// Store is the set of queries a service needs. The generated db.Querier
+// satisfies it, so a test can hand over a stub instead of a database.
 type Store interface {
 	CreateLink(ctx context.Context, arg db.CreateLinkParams) (db.Link, error)
 	UpdateLink(ctx context.Context, arg db.UpdateLinkParams) (db.Link, error)
@@ -27,14 +35,20 @@ type Store interface {
 	GetLinkVisits(ctx context.Context, arg db.GetLinkVisitsParams) ([]db.LinkVisit, error)
 }
 
+// Service keeps the rules of the links themselves away from HTTP and from the
+// driver. Callers read the errors of this package and never a driver error.
 type Service struct {
 	store Store
 }
 
+// NewService returns a service that reads and writes its links in the store.
 func NewService(store Store) Service {
 	return Service{store: store}
 }
 
+// Create stores a link for the original URL. An empty short name asks the
+// service to generate one, a name that is already stored comes back as
+// ErrShortNameTaken.
 func (service Service) Create(
 	ctx context.Context,
 	originalURL string,
@@ -47,6 +61,9 @@ func (service Service) Create(
 	return service.createWithShortName(ctx, originalURL, shortName)
 }
 
+// Update replaces the original URL and the short name of a stored link. A link
+// nobody stored comes back as ErrNotFound, a name another link holds comes back
+// as ErrShortNameTaken.
 func (service Service) Update(
 	ctx context.Context,
 	linkID int64,
@@ -74,6 +91,8 @@ func (service Service) Update(
 	return link, nil
 }
 
+// Delete removes a stored link along with the visits recorded for it. A link
+// nobody stored comes back as ErrNotFound.
 func (service Service) Delete(ctx context.Context, linkID int64) error {
 	deletedCount, err := service.store.DeleteLink(ctx, linkID)
 	if err != nil {
@@ -87,6 +106,8 @@ func (service Service) Delete(ctx context.Context, linkID int64) error {
 	return nil
 }
 
+// Count reports how many links are stored, which is what a caller needs to
+// describe a page of them.
 func (service Service) Count(ctx context.Context) (int64, error) {
 	totalLinks, err := service.store.CountLinks(ctx)
 	if err != nil {
@@ -96,6 +117,7 @@ func (service Service) Count(ctx context.Context) (int64, error) {
 	return totalLinks, nil
 }
 
+// List returns at most size links, starting at offset and ordered by identifier.
 func (service Service) List(ctx context.Context, offset, size int64) ([]db.Link, error) {
 	storedLinks, err := service.store.GetLinks(ctx, db.GetLinksParams{
 		PageOffset: offset,
@@ -108,6 +130,8 @@ func (service Service) List(ctx context.Context, offset, size int64) ([]db.Link,
 	return storedLinks, nil
 }
 
+// Find returns the link with that identifier. A link nobody stored comes back as
+// ErrNotFound.
 func (service Service) Find(ctx context.Context, linkID int64) (db.Link, error) {
 	link, err := service.store.GetLinkByID(ctx, linkID)
 
@@ -122,6 +146,8 @@ func (service Service) Find(ctx context.Context, linkID int64) (db.Link, error) 
 	return link, nil
 }
 
+// Resolve returns the link a short name points at. An unknown name comes back as
+// ErrNotFound.
 func (service Service) Resolve(ctx context.Context, shortName string) (db.Link, error) {
 	link, err := service.store.GetLinkByShortName(ctx, shortName)
 
