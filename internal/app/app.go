@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -29,7 +30,6 @@ const (
 	connectionMaxIdleTime = 5 * time.Minute
 
 	defaultAllowedOrigin = "http://localhost:5173"
-	defaultBaseURL       = "http://localhost:8080"
 
 	serverAddress = ":8080"
 )
@@ -54,13 +54,41 @@ func allowedOrigins() []string {
 	return origins
 }
 
-func baseURL() string {
+var (
+	errMissingBaseURL = errors.New("BASE_URL must be set to a non-empty value")
+	errInvalidBaseURL = errors.New(
+		"BASE_URL must be an http or https address with a host and nothing after it",
+	)
+)
+
+func requireBaseURL() (string, error) {
 	rawBaseURL, isSet := environmentVariable("BASE_URL")
 	if !isSet {
-		return defaultBaseURL
+		return "", errMissingBaseURL
 	}
 
-	return strings.TrimSuffix(strings.TrimSpace(rawBaseURL), "/")
+	return parseBaseURL(rawBaseURL)
+}
+
+func parseBaseURL(rawBaseURL string) (string, error) {
+	parsed, err := url.Parse(strings.TrimSpace(rawBaseURL))
+	if err != nil {
+		return "", fmt.Errorf("parse BASE_URL %q: %w", rawBaseURL, err)
+	}
+
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return "", errInvalidBaseURL
+	}
+
+	if parsed.Hostname() == "" || parsed.User != nil {
+		return "", errInvalidBaseURL
+	}
+
+	if strings.Trim(parsed.Path, "/") != "" || parsed.RawQuery != "" || parsed.Fragment != "" {
+		return "", errInvalidBaseURL
+	}
+
+	return parsed.Scheme + "://" + parsed.Host, nil
 }
 
 var errMissingDatabaseDSN = errors.New(
@@ -120,6 +148,11 @@ func Run(ctx context.Context) error {
 		return err
 	}
 
+	baseURL, err := requireBaseURL()
+	if err != nil {
+		return err
+	}
+
 	err = startSentry()
 	if err != nil {
 		return err
@@ -156,7 +189,7 @@ func Run(ctx context.Context) error {
 		Queries:        db.New(conn),
 		Database:       conn,
 		AllowedOrigins: allowedOrigins(),
-		BaseURL:        baseURL(),
+		BaseURL:        baseURL,
 		ReportError:    reportToSentry,
 	})
 

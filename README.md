@@ -15,11 +15,14 @@ Needs Go 1.26, Node.js 24 and PostgreSQL 17.
 ```
 make install
 export DATABASE_DSN="postgres://user:password@localhost:5432/database?sslmode=disable"
+export BASE_URL="http://localhost:8080"
 make migrate
 ```
 
 `make install` pulls both the Node packages of the admin UI and the Go modules.
 `make migrate` applies the migrations to the database from `DATABASE_DSN`.
+`BASE_URL` is what the short links are built from, so the API refuses to start
+without it.
 
 ## Usage
 
@@ -33,15 +36,21 @@ the admin UI is not needed.
 
 ## Configuration
 
-Everything is read from the environment. Only the database connection is
-required, and without it the process refuses to start. `DATABASE_URL` is there
-because some hosts and test harnesses pass the connection string under that name.
+Everything is read from the environment. The database connection and the public
+base address are both required, and without either of them the process refuses to
+start. `DATABASE_URL` is there because some hosts and test harnesses pass the
+connection string under that name.
+
+`BASE_URL` has to describe the public entry point of the service, because every
+short link handed out is built from it. It takes an http or https scheme and a
+host with an optional port, and nothing else. A path, a query, a fragment or a
+user is refused, a trailing slash is dropped.
 
 | Variable               | Default                 | Description                                        |
 |------------------------|-------------------------|----------------------------------------------------|
 | `DATABASE_DSN`         | none, required          | PostgreSQL connection string                       |
 | `DATABASE_URL`         | none                    | Read only when `DATABASE_DSN` is unset             |
-| `BASE_URL`             | `http://localhost:8080` | Address the short links are built from             |
+| `BASE_URL`             | none, required          | Public address the short links are built from      |
 | `SENTRY_DSN`           | none                    | Sentry project. Error reporting is off when unset  |
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:5173` | Comma separated origins allowed to call the API    |
 
