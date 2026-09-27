@@ -32,6 +32,7 @@ const (
 	internalErrorBody  = `{"error": "internal server error"}`
 	unavailableBody    = `{"error": "service unavailable"}`
 	allowedOrigin      = "http://localhost:5173"
+	apiContentType     = "application/json; charset=utf-8"
 	baseURL            = "https://short.example"
 	validLinkBody      = `{"original_url": "https://example.com", "short_name": "example"}`
 	namelessBody       = `{"original_url": "https://example.com"}`
@@ -277,7 +278,10 @@ func TestUnroutedRequests(t *testing.T) {
 
 			recorder := performRequest(t, stubQuerier{}, testCase.method, testCase.path, "")
 
-			assert.Equal(t, http.StatusNotFound, recorder.Code)
+			assertResponse(t, recorder, http.StatusNotFound, notFoundBody)
+
+			contentType := recorder.Header().Get("Content-Type")
+			assert.Equal(t, apiContentType, contentType)
 		})
 	}
 }

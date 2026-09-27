@@ -42,6 +42,8 @@ func NewRouter(config Config) *gin.Engine {
 		MaxAge:           corsPreflightMaxAge,
 	}))
 
+	ginEngine.NoRoute(respondWithNotFound)
+
 	health := healthHandler{database: config.Database}
 
 	ginEngine.GET("/ping", health.check)

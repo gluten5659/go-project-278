@@ -102,7 +102,9 @@ the record.
 Every failure answers with a body. A request that never made it to validation
 answers with `400 Bad Request`, which covers a body that is not valid JSON, an
 identifier that is not a number and a malformed `range`. A missing link answers
-with `404 Not Found` and a failure on our side answers with `500`.
+with `404 Not Found` and a failure on our side answers with `500`. A path that
+matches no route answers with the same `404` body, so a client parses every error
+the same way.
 
 ```json
 {"error": "invalid request"}
