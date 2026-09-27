@@ -19,9 +19,10 @@ const (
 	shortName   = "example"
 	linkID      = 7
 
-	totalLinks = 42
-	pageOffset = 10
-	pageSize   = 5
+	totalLinks  = 42
+	totalVisits = 84
+	pageOffset  = 10
+	pageSize    = 5
 )
 
 var errQueryFailed = errors.New("query failed")
@@ -38,6 +39,11 @@ type stubStore struct {
 		ctx context.Context,
 		parameters db.CreateLinkVisitParams,
 	) (db.LinkVisit, error)
+	countLinkVisits func(ctx context.Context) (int64, error)
+	getLinkVisits   func(
+		ctx context.Context,
+		parameters db.GetLinkVisitsParams,
+	) ([]db.LinkVisit, error)
 }
 
 func (stub stubStore) DeleteLink(ctx context.Context, linkID int64) (int64, error) {
@@ -117,6 +123,25 @@ func (stub stubStore) CreateLinkVisit(
 	}
 
 	return stub.createLinkVisit(ctx, parameters)
+}
+
+func (stub stubStore) CountLinkVisits(ctx context.Context) (int64, error) {
+	if stub.countLinkVisits == nil {
+		panic("CountLinkVisits was not expected to be called")
+	}
+
+	return stub.countLinkVisits(ctx)
+}
+
+func (stub stubStore) GetLinkVisits(
+	ctx context.Context,
+	parameters db.GetLinkVisitsParams,
+) ([]db.LinkVisit, error) {
+	if stub.getLinkVisits == nil {
+		panic("GetLinkVisits was not expected to be called")
+	}
+
+	return stub.getLinkVisits(ctx, parameters)
 }
 
 func uniqueViolation(constraintName string) error {

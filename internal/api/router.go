@@ -56,7 +56,6 @@ func NewRouter(config Config) *gin.Engine {
 		baseURL:     config.BaseURL,
 	}
 	visitHandler := linkVisitsHandler{
-		queries:     config.Queries,
 		linkService: linkService,
 		reportError: config.ReportError,
 	}

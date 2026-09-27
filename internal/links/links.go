@@ -23,6 +23,8 @@ type Store interface {
 	GetLinkById(ctx context.Context, id int64) (db.Link, error)
 	GetLinkByShortName(ctx context.Context, shortName string) (db.Link, error)
 	CreateLinkVisit(ctx context.Context, arg db.CreateLinkVisitParams) (db.LinkVisit, error)
+	CountLinkVisits(ctx context.Context) (int64, error)
+	GetLinkVisits(ctx context.Context, arg db.GetLinkVisitsParams) ([]db.LinkVisit, error)
 }
 
 type Service struct {

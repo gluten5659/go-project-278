@@ -17,13 +17,14 @@ const (
 )
 
 type linkVisitsHandler struct {
-	queries     db.Querier
 	linkService links.Service
 	reportError ErrorReporter
 }
 
 func (handler linkVisitsHandler) list(ginContext *gin.Context) {
-	totalVisits, err := handler.queries.CountLinkVisits(ginContext.Request.Context())
+	ctx := ginContext.Request.Context()
+
+	totalVisits, err := handler.linkService.CountVisits(ctx)
 	if err != nil {
 		respondWithInternalError(ginContext, err)
 
@@ -37,13 +38,7 @@ func (handler linkVisitsHandler) list(ginContext *gin.Context) {
 		return
 	}
 
-	visits, err := handler.queries.GetLinkVisits(
-		ginContext.Request.Context(),
-		db.GetLinkVisitsParams{
-			PageOffset: bounds.offset,
-			PageSize:   bounds.size,
-		},
-	)
+	visits, err := handler.linkService.ListVisits(ctx, bounds.offset, bounds.size)
 	if err != nil {
 		respondWithInternalError(ginContext, err)
 
