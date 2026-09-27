@@ -186,6 +186,12 @@ TEST_DATABASE_DSN="postgres://user:password@localhost:5432/database_test?sslmode
 
 ## Deployment
 
+The service runs at https://go-project-278-ym54.onrender.com. The admin UI opens
+at the root, and the API answers under the same host over HTTPS, so `/ping`,
+`/api/links` and every short link live at that address too. `BASE_URL` there is
+set to the same address, because that is what the short links are built from, and
+it has to follow the service whenever the deploy moves.
+
 The `Dockerfile` builds the admin UI and the API into one image. Caddy serves the
 UI and proxies everything else to the API, and `bin/run.sh` applies the
 migrations before starting both.
