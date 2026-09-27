@@ -51,6 +51,7 @@ user is refused, a trailing slash is dropped.
 | `DATABASE_DSN`         | none, required          | PostgreSQL connection string                       |
 | `DATABASE_URL`         | none                    | Read only when `DATABASE_DSN` is unset             |
 | `BASE_URL`             | none, required          | Public address the short links are built from      |
+| `HTTP_ADDR`            | `:8080`                 | Address the API listens on, a bare port is allowed |
 | `SENTRY_DSN`           | none                    | Sentry project. Error reporting is off when unset  |
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:5173` | Comma separated origins allowed to call the API    |
 
@@ -183,3 +184,7 @@ TEST_DATABASE_DSN="postgres://user:password@localhost:5432/database_test?sslmode
 The `Dockerfile` builds the admin UI and the API into one image. Caddy serves the
 UI and proxies everything else to the API, and `bin/run.sh` applies the
 migrations before starting both.
+
+Caddy is the only listener the platform sees, so the port the platform assigns
+belongs to Caddy and never reaches the API. Caddy forwards to `localhost:8080`,
+which means `HTTP_ADDR` inside the image has to keep that port.

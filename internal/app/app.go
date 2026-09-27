@@ -31,7 +31,7 @@ const (
 
 	defaultAllowedOrigin = "http://localhost:5173"
 
-	serverAddress = ":8080"
+	defaultServerAddress = ":8080"
 )
 
 func environmentVariable(name string) (string, bool) {
@@ -52,6 +52,25 @@ func allowedOrigins() []string {
 	}
 
 	return origins
+}
+
+func serverAddress() string {
+	rawAddress, isSet := environmentVariable("HTTP_ADDR")
+	if !isSet {
+		return defaultServerAddress
+	}
+
+	return parseServerAddress(rawAddress)
+}
+
+func parseServerAddress(rawAddress string) string {
+	address := strings.TrimSpace(rawAddress)
+
+	if strings.Contains(address, ":") {
+		return address
+	}
+
+	return ":" + address
 }
 
 var (
@@ -193,12 +212,12 @@ func Run(ctx context.Context) error {
 		ReportError:    reportToSentry,
 	})
 
-	return serve(ctx, router)
+	return serve(ctx, router, serverAddress())
 }
 
-func serve(ctx context.Context, router http.Handler) error {
+func serve(ctx context.Context, router http.Handler, address string) error {
 	server := &http.Server{
-		Addr:              serverAddress,
+		Addr:              address,
 		Handler:           router,
 		ReadHeaderTimeout: readHeaderTimeout,
 	}
@@ -211,7 +230,7 @@ func serve(ctx context.Context, router http.Handler) error {
 
 	select {
 	case err := <-serverFailed:
-		return fmt.Errorf("run server on %s: %w", serverAddress, err)
+		return fmt.Errorf("run server on %s: %w", address, err)
 	case <-ctx.Done():
 	}
 

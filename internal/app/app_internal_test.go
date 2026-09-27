@@ -97,3 +97,42 @@ func TestParseBaseURL(t *testing.T) {
 		})
 	}
 }
+
+func TestParseServerAddress(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name        string
+		rawAddress  string
+		wantAddress string
+	}{
+		{
+			name:        "turns a bare port into an address",
+			rawAddress:  "8080",
+			wantAddress: ":8080",
+		},
+		{
+			name:        "keeps an address that already has a colon",
+			rawAddress:  ":9090",
+			wantAddress: ":9090",
+		},
+		{
+			name:        "keeps an address bound to one interface",
+			rawAddress:  "127.0.0.1:8080",
+			wantAddress: "127.0.0.1:8080",
+		},
+		{
+			name:        "trims surrounding spaces",
+			rawAddress:  "  8080  ",
+			wantAddress: ":8080",
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			assert.Equal(t, testCase.wantAddress, parseServerAddress(testCase.rawAddress))
+		})
+	}
+}
