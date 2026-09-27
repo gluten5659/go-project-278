@@ -143,6 +143,10 @@ with it, so the address, the user agent and the headers stay out of the report. 
 panic is reported the same way and still answers `500`. Client errors never reach
 Sentry, so a flood of bad requests cannot drown out the real failures.
 
+The report leaves on its own and the handler does not wait for it, so a slow
+Sentry never holds up an answer or a redirect. Whatever is still queued is sent
+while the process shuts down.
+
 ### Pagination
 
 Both list endpoints take `?range=[first,last]` and answer with a `Content-Range`

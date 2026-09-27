@@ -161,7 +161,6 @@ func reportToSentry(report api.ErrorReport, err error) {
 		"path":   report.Path,
 	})
 	hub.CaptureException(err)
-	hub.Flush(sentryFlushTimeout)
 }
 
 func Run(ctx context.Context) error {
