@@ -14,7 +14,7 @@ type listFixture[Parameters any, Record any] struct {
 	path        string
 	records     []Record
 	recordsJSON string
-	parameters  func(pageOffset int64, pageSize int64) Parameters
+	parameters  func(pageOffset, pageSize int64) Parameters
 	newQueries  func(
 		countRecords func(ctx context.Context) (int64, error),
 		listRecords func(ctx context.Context, parameters Parameters) ([]Record, error),

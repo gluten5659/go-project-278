@@ -11,6 +11,9 @@ linters:
     - wsl
     - gomodguard
   settings:
+    gocritic:
+      enabled-checks:
+        - paramTypeCombine
     ireturn:
       allow:
         - anon

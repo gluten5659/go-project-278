@@ -30,7 +30,7 @@ const (
 	everyFieldInvalidBody = `{"original_url": "example.com", "short_name": "ab"}`
 )
 
-func fieldValidationMessage(structName string, field string, failedTag string) string {
+func fieldValidationMessage(structName, field, failedTag string) string {
 	return fmt.Sprintf(
 		"Key: '%s.%s' Error:Field validation for '%s' failed on the '%s' tag",
 		structName,

@@ -395,7 +395,7 @@ func TestListLinks(t *testing.T) {
 		path:        collectionPath,
 		records:     []db.Link{newLink(1), newLink(2)},
 		recordsJSON: "[" + linkJSON(newLink(1)) + "," + linkJSON(newLink(2)) + "]",
-		parameters: func(pageOffset int64, pageSize int64) db.GetLinksParams {
+		parameters: func(pageOffset, pageSize int64) db.GetLinksParams {
 			return db.GetLinksParams{PageOffset: pageOffset, PageSize: pageSize}
 		},
 		newQueries: func(

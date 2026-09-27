@@ -49,7 +49,7 @@ func respondWithValidationError(ginContext *gin.Context, err error) {
 	ginContext.JSON(http.StatusUnprocessableEntity, gin.H{"errors": messagesByField})
 }
 
-func respondWithFieldError(ginContext *gin.Context, cause error, field string, message string) {
+func respondWithFieldError(ginContext *gin.Context, cause error, field, message string) {
 	_ = ginContext.Error(cause)
 
 	ginContext.JSON(http.StatusUnprocessableEntity, gin.H{"errors": gin.H{field: message}})

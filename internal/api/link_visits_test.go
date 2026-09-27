@@ -233,7 +233,7 @@ func TestListLinkVisits(t *testing.T) {
 		path:        visitsPath,
 		records:     []db.LinkVisit{newVisit(1), newVisit(2)},
 		recordsJSON: "[" + visitJSON(newVisit(1)) + "," + visitJSON(newVisit(2)) + "]",
-		parameters: func(pageOffset int64, pageSize int64) db.GetLinkVisitsParams {
+		parameters: func(pageOffset, pageSize int64) db.GetLinkVisitsParams {
 			return db.GetLinkVisitsParams{PageOffset: pageOffset, PageSize: pageSize}
 		},
 		newQueries: func(
