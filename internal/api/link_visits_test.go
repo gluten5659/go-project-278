@@ -93,13 +93,16 @@ func performRedirect(
 		request.Header.Set(name, value)
 	}
 
-	api.NewRouter(api.Config{
+	router, err := api.NewRouter(api.Config{
 		Queries:        queries,
 		Database:       stubDatabase{},
 		AllowedOrigins: []string{allowedOrigin},
 		BaseURL:        baseURL,
 		ReportError:    recordReport,
-	}).ServeHTTP(recorder, request)
+	})
+	require.NoError(t, err)
+
+	router.ServeHTTP(recorder, request)
 
 	return recorder, reports
 }

@@ -206,13 +206,16 @@ func Run(ctx context.Context) error {
 		return fmt.Errorf("ping database: %w", err)
 	}
 
-	router := api.NewRouter(api.Config{
+	router, err := api.NewRouter(api.Config{
 		Queries:        db.New(conn),
 		Database:       conn,
 		AllowedOrigins: allowedOrigins(),
 		BaseURL:        baseURL,
 		ReportError:    reportToSentry,
 	})
+	if err != nil {
+		return fmt.Errorf("build router: %w", err)
+	}
 
 	return serve(ctx, router, serverAddress())
 }

@@ -214,13 +214,16 @@ func performRequest(
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequestWithContext(t.Context(), method, path, strings.NewReader(body))
 
-	api.NewRouter(api.Config{
+	router, err := api.NewRouter(api.Config{
 		Queries:        queries,
 		Database:       stubDatabase{},
 		AllowedOrigins: []string{allowedOrigin},
 		BaseURL:        baseURL,
 		ReportError:    discardErrorReports,
-	}).ServeHTTP(recorder, request)
+	})
+	require.NoError(t, err)
+
+	router.ServeHTTP(recorder, request)
 
 	return recorder
 }
@@ -358,13 +361,16 @@ func TestCORS(t *testing.T) {
 				request.Header.Set("Access-Control-Request-Method", testCase.preflightMethod)
 			}
 
-			api.NewRouter(api.Config{
+			router, err := api.NewRouter(api.Config{
 				Queries:        queries,
 				Database:       stubDatabase{},
 				AllowedOrigins: []string{allowedOrigin},
 				BaseURL:        baseURL,
 				ReportError:    discardErrorReports,
-			}).ServeHTTP(recorder, request)
+			})
+			require.NoError(t, err)
+
+			router.ServeHTTP(recorder, request)
 
 			assert.Equal(t, testCase.wantStatus, recorder.Code)
 			assert.Equal(

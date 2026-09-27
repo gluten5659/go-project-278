@@ -41,13 +41,16 @@ func TestCheckHealth(t *testing.T) {
 			recorder := httptest.NewRecorder()
 			request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/ping", nil)
 
-			api.NewRouter(api.Config{
+			router, err := api.NewRouter(api.Config{
 				Queries:        stubQuerier{},
 				Database:       stubDatabase{pingError: testCase.pingError},
 				AllowedOrigins: []string{allowedOrigin},
 				BaseURL:        baseURL,
 				ReportError:    discardErrorReports,
-			}).ServeHTTP(recorder, request)
+			})
+			require.NoError(t, err)
+
+			router.ServeHTTP(recorder, request)
 
 			require.Equal(t, testCase.wantStatus, recorder.Code)
 			assertResponse(t, recorder, testCase.wantStatus, testCase.wantBody)

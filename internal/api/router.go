@@ -3,6 +3,7 @@ package api
 import (
 	"code/internal/db"
 	"code/internal/links"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -20,10 +21,16 @@ type Config struct {
 	ReportError    ErrorReporter
 }
 
-func NewRouter(config Config) *gin.Engine {
+func NewRouter(config Config) (*gin.Engine, error) {
+	trustedProxies := []string{"127.0.0.1", "::1"}
+
 	ginEngine := gin.Default()
 	ginEngine.TrustedPlatform = gin.PlatformCloudflare
-	_ = ginEngine.SetTrustedProxies([]string{"127.0.0.1", "::1"})
+
+	err := ginEngine.SetTrustedProxies(trustedProxies)
+	if err != nil {
+		return nil, fmt.Errorf("trust proxies %v: %w", trustedProxies, err)
+	}
 
 	ginEngine.Use(reportServerErrors(config.ReportError))
 
@@ -70,5 +77,5 @@ func NewRouter(config Config) *gin.Engine {
 	ginEngine.PUT("/api/links/:id", linkHandler.update)
 	ginEngine.DELETE("/api/links/:id", linkHandler.destroy)
 
-	return ginEngine
+	return ginEngine, nil
 }
