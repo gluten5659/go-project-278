@@ -103,8 +103,8 @@ func (handler linksHandler) list(ginContext *gin.Context) {
 	storedLinks, err := handler.queries.GetLinks(
 		ginContext.Request.Context(),
 		db.GetLinksParams{
-			PageOffset: bounds.firstIndex,
-			PageSize:   bounds.pageSize(),
+			PageOffset: bounds.offset,
+			PageSize:   bounds.size,
 		},
 	)
 	if err != nil {
@@ -113,7 +113,9 @@ func (handler linksHandler) list(ginContext *gin.Context) {
 		return
 	}
 
-	ginContext.Header("Content-Range", bounds.contentRange(LinksResource, totalLinks))
+	contentRange := bounds.contentRange(LinksResource, int64(len(storedLinks)), totalLinks)
+
+	ginContext.Header("Content-Range", contentRange)
 	ginContext.JSON(http.StatusOK, handler.newLinkResponses(storedLinks))
 }
 

@@ -136,8 +136,11 @@ Both list endpoints take `?range=[first,last]` and answer with a `Content-Range`
 header of the form `links 0-9/42`. Both bounds are inclusive, so `[0,9]` asks for
 ten records. That is what the admin UI reads to build its pager. Without the
 parameter the whole collection comes back. A range asking for more than a thousand
-records is cut down to a thousand, and the header then reports what was actually
-returned rather than what was asked for.
+records is cut down to a thousand.
+
+The header always describes the records that came back, not the ones that were
+asked for. A range starting after the last record has no records to describe, so
+the header answers `links */42` and the client still reads the total from it.
 
 ### Deleting a link
 

@@ -15,23 +15,23 @@ const (
 var errMalformedRange = errors.New("range must be [first, last] with 0 <= first <= last")
 
 type pageRange struct {
-	firstIndex int64
-	lastIndex  int64
+	offset int64
+	size   int64
 }
 
-func (bounds pageRange) contentRange(resource string, totalRecords int64) string {
-	lastIndex := max(bounds.firstIndex, min(bounds.lastIndex, totalRecords-1))
+func (bounds pageRange) contentRange(resource string, recordCount, totalRecords int64) string {
+	if recordCount == 0 {
+		return fmt.Sprintf("%s */%d", resource, totalRecords)
+	}
 
-	return fmt.Sprintf("%s %d-%d/%d", resource, bounds.firstIndex, lastIndex, totalRecords)
-}
+	lastIndex := bounds.offset + recordCount - 1
 
-func (bounds pageRange) pageSize() int64 {
-	return bounds.lastIndex - bounds.firstIndex + 1
+	return fmt.Sprintf("%s %d-%d/%d", resource, bounds.offset, lastIndex, totalRecords)
 }
 
 func parsePageRange(rawRange string, totalRecords int64) (pageRange, error) {
 	if rawRange == "" {
-		return pageRange{firstIndex: 0, lastIndex: totalRecords - 1}, nil
+		return pageRange{offset: 0, size: totalRecords}, nil
 	}
 
 	var bounds []int64
@@ -45,13 +45,13 @@ func parsePageRange(rawRange string, totalRecords int64) (pageRange, error) {
 		return pageRange{}, errMalformedRange
 	}
 
-	parsed := pageRange{firstIndex: bounds[0], lastIndex: bounds[1]}
+	firstIndex, lastIndex := bounds[0], bounds[1]
 
-	if parsed.firstIndex < 0 || parsed.lastIndex < parsed.firstIndex {
+	if firstIndex < 0 || lastIndex < firstIndex {
 		return pageRange{}, errMalformedRange
 	}
 
-	parsed.lastIndex = min(parsed.lastIndex, parsed.firstIndex+maxPageSize-1)
+	indexSpan := lastIndex - firstIndex
 
-	return parsed, nil
+	return pageRange{offset: firstIndex, size: min(indexSpan, maxPageSize-1) + 1}, nil
 }

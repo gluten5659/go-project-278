@@ -15,48 +15,63 @@ func TestParsePageRange(t *testing.T) {
 		rawRange         string
 		totalRecords     int64
 		wantError        bool
-		wantPageSize     int64
+		wantSize         int64
+		recordCount      int64
 		wantContentRange string
 	}{
 		{
 			name:             "takes the whole collection without a range",
 			totalRecords:     42,
-			wantPageSize:     42,
+			wantSize:         42,
+			recordCount:      42,
 			wantContentRange: "links 0-41/42",
 		},
 		{
 			name:             "reports an empty collection without a range",
 			totalRecords:     0,
-			wantPageSize:     0,
-			wantContentRange: "links 0-0/0",
+			wantSize:         0,
+			recordCount:      0,
+			wantContentRange: "links */0",
 		},
 		{
 			name:             "counts both bounds of a range",
 			rawRange:         "[0,9]",
 			totalRecords:     42,
-			wantPageSize:     10,
+			wantSize:         10,
+			recordCount:      10,
 			wantContentRange: "links 0-9/42",
 		},
 		{
 			name:             "takes a single record range",
 			rawRange:         "[3,3]",
 			totalRecords:     42,
-			wantPageSize:     1,
+			wantSize:         1,
+			recordCount:      1,
 			wantContentRange: "links 3-3/42",
 		},
 		{
 			name:             "skips the offset of a range",
 			rawRange:         "[10,19]",
 			totalRecords:     42,
-			wantPageSize:     10,
+			wantSize:         10,
+			recordCount:      10,
 			wantContentRange: "links 10-19/42",
 		},
 		{
-			name:             "clamps a range that reaches past the last record",
+			name:             "reports the records a range actually reached",
 			rawRange:         "[0,99]",
 			totalRecords:     42,
-			wantPageSize:     100,
+			wantSize:         100,
+			recordCount:      42,
 			wantContentRange: "links 0-41/42",
+		},
+		{
+			name:             "reports a page that starts after the last record",
+			rawRange:         "[100,109]",
+			totalRecords:     42,
+			wantSize:         10,
+			recordCount:      0,
+			wantContentRange: "links */42",
 		},
 		{
 			name:         "rejects a malformed range",
@@ -86,21 +101,24 @@ func TestParsePageRange(t *testing.T) {
 			name:             "clamps a range above the page limit",
 			rawRange:         "[0,1000]",
 			totalRecords:     5000,
-			wantPageSize:     1000,
+			wantSize:         1000,
+			recordCount:      1000,
 			wantContentRange: "links 0-999/5000",
 		},
 		{
 			name:             "clamps a range above the page limit from an offset",
 			rawRange:         "[10,5000]",
 			totalRecords:     9000,
-			wantPageSize:     1000,
+			wantSize:         1000,
+			recordCount:      1000,
 			wantContentRange: "links 10-1009/9000",
 		},
 		{
 			name:             "accepts a range at the page limit",
 			rawRange:         "[0,999]",
 			totalRecords:     2000,
-			wantPageSize:     1000,
+			wantSize:         1000,
+			recordCount:      1000,
 			wantContentRange: "links 0-999/2000",
 		},
 	}
@@ -118,11 +136,11 @@ func TestParsePageRange(t *testing.T) {
 			}
 
 			require.NoError(t, err)
-			assert.Equal(t, testCase.wantPageSize, bounds.pageSize())
+			assert.Equal(t, testCase.wantSize, bounds.size)
 			assert.Equal(
 				t,
 				testCase.wantContentRange,
-				bounds.contentRange(LinksResource, testCase.totalRecords),
+				bounds.contentRange(LinksResource, testCase.recordCount, testCase.totalRecords),
 			)
 		})
 	}

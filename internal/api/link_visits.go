@@ -40,8 +40,8 @@ func (handler linkVisitsHandler) list(ginContext *gin.Context) {
 	visits, err := handler.queries.GetLinkVisits(
 		ginContext.Request.Context(),
 		db.GetLinkVisitsParams{
-			PageOffset: bounds.firstIndex,
-			PageSize:   bounds.pageSize(),
+			PageOffset: bounds.offset,
+			PageSize:   bounds.size,
 		},
 	)
 	if err != nil {
@@ -50,11 +50,13 @@ func (handler linkVisitsHandler) list(ginContext *gin.Context) {
 		return
 	}
 
+	contentRange := bounds.contentRange(LinkVisitsResource, int64(len(visits)), totalVisits)
+
 	if visits == nil {
 		visits = []db.LinkVisit{}
 	}
 
-	ginContext.Header("Content-Range", bounds.contentRange(LinkVisitsResource, totalVisits))
+	ginContext.Header("Content-Range", contentRange)
 	ginContext.JSON(http.StatusOK, visits)
 }
 
