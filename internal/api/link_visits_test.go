@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -68,20 +69,11 @@ func performRedirect(
 	t *testing.T,
 	queries db.Querier,
 	headers map[string]string,
-) (*httptest.ResponseRecorder, []reportedError) {
+	reportError api.ErrorReporter,
+) *httptest.ResponseRecorder {
 	t.Helper()
 
 	gin.SetMode(gin.TestMode)
-
-	var reports []reportedError
-
-	recordReport := func(report api.ErrorReport, err error) {
-		reports = append(reports, reportedError{
-			method:  report.Method,
-			path:    report.Path,
-			message: err.Error(),
-		})
-	}
 
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, redirectPath, nil)
@@ -98,13 +90,13 @@ func performRedirect(
 		Database:       stubDatabase{},
 		AllowedOrigins: []string{allowedOrigin},
 		BaseURL:        baseURL,
-		ReportError:    recordReport,
+		ReportError:    reportError,
 	})
 	require.NoError(t, err)
 
 	router.ServeHTTP(recorder, request)
 
-	return recorder, reports
+	return recorder
 }
 
 func TestRedirect(t *testing.T) {
@@ -185,42 +177,57 @@ func TestRedirect(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			visitRecorded := false
-			receivedShortName := ""
+			synctest.Test(t, func(t *testing.T) {
+				visitRecorded := false
+				receivedShortName := ""
 
-			var receivedVisit db.CreateLinkVisitParams
+				var (
+					receivedVisit db.CreateLinkVisitParams
+					reports       []reportedError
+				)
 
-			queries := stubQuerier{
-				getLinkByShortName: func(
-					ctx context.Context,
-					name string,
-				) (db.Link, error) {
-					receivedShortName = name
+				queries := stubQuerier{
+					getLinkByShortName: func(
+						ctx context.Context,
+						name string,
+					) (db.Link, error) {
+						receivedShortName = name
 
-					return testCase.getLinkByShortName(ctx, name)
-				},
-				createLinkVisit: func(
-					_ context.Context,
-					parameters db.CreateLinkVisitParams,
-				) (db.LinkVisit, error) {
-					visitRecorded = true
-					receivedVisit = parameters
+						return testCase.getLinkByShortName(ctx, name)
+					},
+					createLinkVisit: func(
+						_ context.Context,
+						parameters db.CreateLinkVisitParams,
+					) (db.LinkVisit, error) {
+						visitRecorded = true
+						receivedVisit = parameters
 
-					return newVisit(1), testCase.createError
-				},
-			}
+						return newVisit(1), testCase.createError
+					},
+				}
 
-			recorder, reports := performRedirect(t, queries, testCase.headers)
+				recordReport := func(report api.ErrorReport, err error) {
+					reports = append(reports, reportedError{
+						method:  report.Method,
+						path:    report.Path,
+						message: err.Error(),
+					})
+				}
 
-			require.Equal(t, testCase.wantStatus, recorder.Code)
-			assert.Equal(t, testCase.wantReports, reports)
-			assert.Equal(t, testCase.wantLocation, recorder.Header().Get("Location"))
-			assert.Equal(t, shortName, receivedShortName)
-			require.Equal(t, testCase.wantVisitRecorded, visitRecorded)
+				recorder := performRedirect(t, queries, testCase.headers, recordReport)
 
-			if testCase.wantVisitRecorded {
-				assert.Equal(t, testCase.wantVisit, receivedVisit)
-			}
+				synctest.Wait()
+
+				require.Equal(t, testCase.wantStatus, recorder.Code)
+				assert.Equal(t, testCase.wantReports, reports)
+				assert.Equal(t, testCase.wantLocation, recorder.Header().Get("Location"))
+				assert.Equal(t, shortName, receivedShortName)
+				require.Equal(t, testCase.wantVisitRecorded, visitRecorded)
+
+				if testCase.wantVisitRecorded {
+					assert.Equal(t, testCase.wantVisit, receivedVisit)
+				}
+			})
 		})
 	}
 }

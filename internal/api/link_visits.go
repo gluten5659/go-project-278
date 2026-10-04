@@ -3,7 +3,9 @@ package api
 import (
 	"code/internal/db"
 	"code/internal/links"
+	"context"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -14,6 +16,8 @@ const (
 	redirectStatus = http.StatusFound
 
 	RedirectPrefix = "/r/"
+
+	recordVisitTimeout = 5 * time.Second
 )
 
 type linkVisitsHandler struct {
@@ -65,12 +69,25 @@ func (handler linkVisitsHandler) redirect(ginContext *gin.Context) {
 		return
 	}
 
-	err = handler.linkService.RecordVisit(ctx, newVisit(ginContext, link.ID))
-	if err != nil {
-		handler.reportError(newErrorReport(ginContext), err)
-	}
-
 	ginContext.Redirect(redirectStatus, link.OriginalURL)
+
+	go handler.recordVisit(ctx, newErrorReport(ginContext), newVisit(ginContext, link.ID))
+}
+
+// recordVisit runs after the handler returns, so it must not touch the gin
+// context, which gin reuses by then.
+func (handler linkVisitsHandler) recordVisit(
+	ctx context.Context,
+	report ErrorReport,
+	visit links.Visit,
+) {
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), recordVisitTimeout)
+	defer cancel()
+
+	err := handler.linkService.RecordVisit(ctx, visit)
+	if err != nil {
+		handler.reportError(report, err)
+	}
 }
 
 func newVisit(ginContext *gin.Context, linkID int64) links.Visit {

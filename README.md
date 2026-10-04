@@ -147,6 +147,11 @@ The report leaves on its own and the handler does not wait for it, so a slow
 Sentry never holds up an answer or a redirect. Whatever is still queued is sent
 while the process shuts down.
 
+### Visits
+
+A redirect does not wait for its visit to be written, so a visit the database
+does not take within five seconds, or during a shutdown, is lost.
+
 ### Pagination
 
 Both list endpoints take `?range=[first,last]` and answer with a `Content-Range`
