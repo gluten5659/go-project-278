@@ -12,6 +12,7 @@ import (
 	"github.com/go-playground/validator/v10"
 )
 
+// Exported for the black-box tests, not as an API.
 const (
 	LinksResource = "links"
 
@@ -19,7 +20,7 @@ const (
 
 	ShortNameField = "short_name"
 
-	ShortNameTakenMessage = "short name already in use"
+	shortNameTakenMessage = "short name already in use"
 )
 
 type createLinkRequest struct {

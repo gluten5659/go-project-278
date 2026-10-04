@@ -10,6 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// Exported for the black-box tests, not as an API.
 const (
 	LinkVisitsResource = "link_visits"
 

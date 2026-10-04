@@ -21,7 +21,7 @@ func respondWithLinkError(ginContext *gin.Context, err error) {
 	case errors.Is(err, links.ErrNotFound):
 		respondWithNotFound(ginContext)
 	case errors.Is(err, links.ErrShortNameTaken):
-		respondWithFieldError(ginContext, err, ShortNameField, ShortNameTakenMessage)
+		respondWithFieldError(ginContext, err, ShortNameField, shortNameTakenMessage)
 	case errors.Is(err, links.ErrNoFreeShortName):
 		respondWithUnavailable(ginContext, err)
 	default:

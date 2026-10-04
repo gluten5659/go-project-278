@@ -11,10 +11,12 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
+// Exported for the black-box tests of this package and of api, not as an API.
 const (
 	ShortNameLength   = 8
 	ShortNameAttempts = 3
 
+	// UniqueViolationCode is the SQLSTATE of a unique index violation.
 	UniqueViolationCode = "23505"
 	ShortNameIndex      = "idx_short_name"
 
